@@ -65,9 +65,9 @@ const save = () => {
   fs.writeFileSync(prefFile, JSON.stringify(strMapToObj(prefs), null, 2))
 }
 
-const set = (key, value) => {
+const set = (key, value, sync = true) => {
   let result = prefs.set(key, value)
-  save()
+  if (sync) { save() }
   return result
 }
 
