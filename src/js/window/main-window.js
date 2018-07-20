@@ -8,6 +8,7 @@ const moment = require('moment')
 const generateStats = require('../tasks/generate-stats')
 const generateScriptPdf = require('../tasks/generate-script-pdf')
 const generateOutlinePdf = require('../tasks/generate-outline-pdf')
+const generateReader = require('../tasks/generate-reader')
 const generateSceneList = require('../tasks/generate-scene-list')
 
 // loads prefs
@@ -127,6 +128,17 @@ ipcRenderer.on('ready', () => {
       })
 
       shell.openItem(path.join(outputDirectory, 'outline.pdf'))
+    }
+  })
+
+  document.querySelector('#generateReader').addEventListener('click', async () => {
+    if (scriptPath.length) {
+      await generateReader.generate({
+        inputPath: scriptPath,
+        outputPath: path.join(outputDirectory, 'output.mp3')
+      })
+
+      shell.openItem(path.join(outputDirectory, 'output.mp3'))
     }
   })
 

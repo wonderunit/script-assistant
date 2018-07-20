@@ -50,7 +50,6 @@ const getPages = async (options = {}) => {
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
   let scriptData = fountainParse.parse(contents)
-  console.log(scriptData.script)
   return scriptData
 }
 
