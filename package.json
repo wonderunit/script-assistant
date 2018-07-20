@@ -68,8 +68,7 @@
   },
   "devDependencies": {
     "electron": "v2.0.5",
-    "electron-builder": "20.22.0",
-    "electron-osx-sign": "^0.4.8"
+    "electron-builder": "20.22.0"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "1.0.13",
@@ -78,6 +77,7 @@
     "@google-cloud/text-to-speech": "^0.1.0",
     "execa": "^0.10.0",
     "md5": "^2.2.1",
-    "mp3-duration": "^1.1.0"
+    "mp3-duration": "^1.1.0",
+    "chokidar": "2.0.4"
   }
 }

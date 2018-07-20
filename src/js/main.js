@@ -1,4 +1,5 @@
 const electron = require('electron')
+const { ipcMain } = require('electron')
 const app = electron.app
 const BrowserWindow = electron.BrowserWindow
 
@@ -11,15 +12,19 @@ let mainWindow
 
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = true
 
-
 function createWindow () {
 
   mainWindow = new BrowserWindow({
-    width: 800, 
+    width: 1200, 
     height: 600, 
+    minWidth: 1200, 
+    minHeight: 600, 
     x: 0,
     y: 0,
+    show: false,
     center: true,
+    frame: false,
+    titleBarStyle: 'hiddenInset',
     webPreferences: {
       plugins: true,
       webSecurity: false,
@@ -27,7 +32,7 @@ function createWindow () {
       experimentalFeatures: true,
     }})
 
-  mainWindow.ELECTRON_DISABLE_SECURITY_WARNINGS = true
+  //mainWindow.ELECTRON_DISABLE_SECURITY_WARNINGS = true
 
 
   mainWindow.loadURL(url.format({
@@ -47,6 +52,11 @@ function createWindow () {
     // in an array if your app supports multi windows, this is the time
     // when you should delete the corresponding element.
     mainWindow = null
+  })
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.webContents.send('ready')
+    mainWindow.show()
   })
 }
 

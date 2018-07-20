@@ -2,11 +2,11 @@ const fs = require('fs')
 const path = require('path')
 const pdfDocument = require('pdfkit')
 const moment = require('moment')
-const fountain = require('./vendor/fountain')
+const fountain = require('../../vendor/fountain')
 
 
 const parseScript = (filepath) => {
-  let contents = fs.readFileSync("/Users/setpixel/git/explorers-script/EXPLORERS.fountain", "utf8");
+  let contents = fs.readFileSync(filepath, "utf8");
   let scriptData = fountain.parse(contents, true).tokens
 
   let title
@@ -268,96 +268,111 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
 }
 
 
+const generate = async (options = {}) => {
+  await renderScript(options)
+}
 
 
+const renderScript = (options = {}) => {
+  return new Promise((resolve, reject) => {
 
-const generatePDF = (filepath) => {
+    let script = parseScript(options.inputPath)
 
-  let script = parseScript()
+    console.log(script)
 
-  console.log(script)
+    let documentSize = [48*72,24*72]
+    let margin = [40, 22, 40, 40]
 
-  let documentSize = [48*72,24*72]
-  let margin = [40, 22, 40, 40]
+    let doc = new pdfDocument({size: documentSize, layout: 'portrait', margin: 0})
 
-  let doc = new pdfDocument({size: documentSize, layout: 'portrait', margin: 0})
-
-  doc.registerFont('thin',     path.join(__dirname, '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Thin.ttf'))
-  doc.registerFont('italic',   path.join(__dirname, '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-RegularItalic.ttf'))
-  doc.registerFont('regular',     path.join(__dirname, '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Regular.ttf'))
-  doc.registerFont('bold',     path.join(__dirname, '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Bold.ttf'))
-  doc.registerFont('extrabold',     path.join(__dirname, '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Extrabold.ttf'))
-  doc.registerFont('black',     path.join(__dirname, '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Black.ttf'))
-
-
-  let stream = doc.pipe(fs.createWriteStream('test.pdf'))
-
-  // try to layout, if too large, increment columnCount and try again
-  let columnCount = 3
-  let columnsFit = false
-
-  // console.log(columnCount)
-
-  // columnsFit = layoutChunks(chunks, columnCount, doc, documentSize, false)
+    doc.registerFont('thin',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Thin.ttf'))
+    doc.registerFont('italic',   path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-RegularItalic.ttf'))
+    doc.registerFont('regular',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Regular.ttf'))
+    doc.registerFont('bold',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Bold.ttf'))
+    doc.registerFont('extrabold',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Extrabold.ttf'))
+    doc.registerFont('black',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Black.ttf'))
 
 
-  while (!columnsFit) {
-    columnsFit = layoutChunks(script.chunks, columnCount, doc, documentSize, false, margin)
-    columnCount++
-    console.log(columnCount)
-  }
+    let stream = doc.pipe(fs.createWriteStream(options.outputPath))
 
-columnCount--
+    // try to layout, if too large, increment columnCount and try again
+    let columnCount = 3
+    let columnsFit = false
 
+    // console.log(columnCount)
 
-  console.log('time to draw:', (columnCount))
-
-  layoutChunks(script.chunks, columnCount, doc, documentSize, true, margin)
+    // columnsFit = layoutChunks(chunks, columnCount, doc, documentSize, false)
 
 
-  doc.fontSize(documentSize[0]/columnCount*.15)
-  doc.font('black')
-  let titleWidth = doc.widthOfString(script.title)
-  let titleHeight = doc.heightOfString(script.title)
-  doc.text(script.title, doc.page.width-margin[2]-titleWidth, doc.page.height-margin[3]-1.25-titleHeight, {lineBreak: false})
+    while (!columnsFit) {
+      columnsFit = layoutChunks(script.chunks, columnCount, doc, documentSize, false, margin)
+      columnCount++
+      console.log(columnCount)
+    }
+
+  columnCount--
 
 
-  let dateText = 'DRAFT: ' + moment().format('MMMM D, YYYY').toUpperCase() + '  //  ' + script.author
+    console.log('time to draw:', (columnCount))
 
-  doc.fontSize(documentSize[0]/columnCount*.025)
-  doc.font('thin')
-  // let dateWidth = doc.widthOfString(dateText)
- 
-   let dateHeight = doc.heightOfString(dateText, {lineBreak: false, align: 'right', width: 400})
- 
-   console.log(dateHeight)
-  doc.text(dateText, doc.page.width-margin[2]-400, doc.page.height-margin[3]-1.25-dateHeight-titleHeight-(documentSize[0]/columnCount*.01), {lineBreak: false, align: 'right', width: 400})
+    layoutChunks(script.chunks, columnCount, doc, documentSize, true, margin)
 
 
-  
+    doc.fontSize(documentSize[0]/columnCount*.15)
+    doc.font('black')
+    let titleWidth = doc.widthOfString(script.title)
+    let titleHeight = doc.heightOfString(script.title)
+    doc.text(script.title, doc.page.width-margin[2]-titleWidth, doc.page.height-margin[3]-1.25-titleHeight, {lineBreak: false})
 
 
+    let dateText = 'DRAFT: ' + moment().format('MMMM D, YYYY').toUpperCase() + '  //  ' + script.author
 
-    doc.fontSize(10)
+    doc.fontSize(documentSize[0]/columnCount*.025)
     doc.font('thin')
-    let logoWidth = doc.widthOfString('')
-    doc.fontSize(5)
-    let wuWidth = doc.widthOfString(' WONDER UNIT', {characterSpacing: 1})
-    doc.fontSize(6)
-    let sbWidth = doc.widthOfString('   //   Outliner')
+    // let dateWidth = doc.widthOfString(dateText)
+   
+     let dateHeight = doc.heightOfString(dateText, {lineBreak: false, align: 'right', width: 400})
+   
+     console.log(dateHeight)
+    doc.text(dateText, doc.page.width-margin[2]-400, doc.page.height-margin[3]-1.25-dateHeight-titleHeight-(documentSize[0]/columnCount*.01), {lineBreak: false, align: 'right', width: 400})
 
-    doc.fontSize(10)
-    doc.text('', doc.page.width-margin[2]-logoWidth-wuWidth-sbWidth-1.25, doc.page.height-margin[3]-1.25, {lineBreak: false})
-    doc.fontSize(5)
-    doc.text(' WONDER UNIT', doc.page.width-margin[2]-wuWidth-sbWidth, doc.page.height-margin[3]+0.5, {lineBreak: false, characterSpacing: 1})
-    doc.fontSize(6)
-    doc.text('   //   Outliner', doc.page.width-margin[2]-sbWidth, doc.page.height-margin[3], {lineBreak: false})
 
-  doc.end()
+    
+
+
+
+      doc.fontSize(10)
+      doc.font('thin')
+      let logoWidth = doc.widthOfString('')
+      doc.fontSize(5)
+      let wuWidth = doc.widthOfString(' WONDER UNIT', {characterSpacing: 1})
+      doc.fontSize(6)
+      let sbWidth = doc.widthOfString('   //   Outliner')
+
+      doc.fontSize(10)
+      doc.text('', doc.page.width-margin[2]-logoWidth-wuWidth-sbWidth-1.25, doc.page.height-margin[3]-1.25, {lineBreak: false})
+      doc.fontSize(5)
+      doc.text(' WONDER UNIT', doc.page.width-margin[2]-wuWidth-sbWidth, doc.page.height-margin[3]+0.5, {lineBreak: false, characterSpacing: 1})
+      doc.fontSize(6)
+      doc.text('   //   Outliner', doc.page.width-margin[2]-sbWidth, doc.page.height-margin[3], {lineBreak: false})
+
+
+      stream.on('finish', () => {
+        resolve()
+      })
+
+
+    doc.end()
+
+
+
+
+  })
+
 }
 
 
 
 module.exports = {
-  generatePDF
+  generate
 }

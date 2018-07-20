@@ -1,0 +1,48 @@
+body {
+  margin: 0;
+  padding: 50px;
+  color: black;
+  font-family: 'wonderunitsans';
+  font-weight: 300;
+  background: #333333;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor:default;
+  min-height: 100vh;
+  overflow: hidden;
+
+  border: 0;
+  height: 100vh;
+  width: 100vw;
+
+  -webkit-app-region: drag;
+}
+
+#title {
+  font-size: 30px;
+  font-weight: 800;
+}
+
+button {
+  -webkit-app-region: no-drag;
+  outline: 0;
+  border: 0;
+  border-radius: 8px;
+  background: #1E88E5;
+  color: white;
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-decoration: none;
+  padding: 20px 40px;
+  margin: 0.25rem;
+}
+
+button:hover {
+  background: red;
+}
+
+button:active {
+  background: green;
+}

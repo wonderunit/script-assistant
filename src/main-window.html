@@ -1,23 +1,26 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <style type="text/css">
-      body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-      }
-      iframe {
-        border: 0;
-        height: 100vh;
-        width: 100vw;
-        margin: 0;
-        padding: 0;
-      }
-    </style>
+    <link rel="stylesheet" href="./css/fonts.css">
+    <link rel="stylesheet" href="./css/main-window.css">
   </head>
   <body>
-    <iframe id="iframe" src=""></iframe>
+
+    <div id="title"></div>
+    <div id="stats"></div>
+
+
+      <button id="revealScript">Loading ...</button>
+
+      <br/>
+      <br/>
+
+      <button id="generateScriptPdf">Export Script PDF</button>
+      <button id="generateOutlinePdf">Export Outline PDF</button>
+      <button id="generateReaderMp3">Export Reader MP3</button>
+      <button id="generateSceneList">Export Scene List</button>
+
+
   <script>
     require('./js/window/main-window')
   </script>
