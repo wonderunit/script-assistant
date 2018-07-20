@@ -11,6 +11,8 @@ const generateOutlinePdf = require('../tasks/generate-outline-pdf')
 const generateReader = require('../tasks/generate-reader')
 const generateSceneList = require('../tasks/generate-scene-list')
 
+const prefs = require('../prefs')
+
 // loads prefs
 // if theres file there, open it
 // watch file for changes
@@ -19,14 +21,14 @@ const generateSceneList = require('../tasks/generate-scene-list')
 // display them
 // load settings prefs
 
-let scriptPath = "/Users/setpixel/git/explorers-script/EXPLORERS.fountain"
+let scriptPath
 let outputDirectory = app.getPath('documents')
 
 const loadScript = (filepath) => {
   scriptPath = filepath
   document.querySelector('#revealScript').innerText = scriptPath
   loadStats(scriptPath)
-
+  prefs.set('lastScriptPath', scriptPath)
 }
 
 const loadStats = async (filepath, modifiedTime) => {
@@ -63,8 +65,6 @@ const loadStats = async (filepath, modifiedTime) => {
   document.querySelector('#stats').innerHTML = statsHTML.join('')
 }
 
-loadScript(scriptPath)
-
 
 
 const onLinkedFileChange = async (eventType, filepath, stats) => {
@@ -84,31 +84,27 @@ const onLinkedFileChange = async (eventType, filepath, stats) => {
   // display them
 }
 
+const init = () => {
+  prefs.init(path.join(app.getPath('userData'), 'prefs.json'))
+  console.log('Script Assistant v' + prefs.get('version'))
+  console.log('Most Recent Script Path:', prefs.get('lastScriptPath'))
 
-let watcher = chokidar.watch(null, {
-  disableGlobbing: true // treat file strings as literal file names
-})
-watcher.on('all', onLinkedFileChange)
+  if (prefs.get('lastScriptPath')) {
+    loadScript(prefs.get('lastScriptPath'))
+  }
 
-watcher.add(scriptPath)
+  let watcher = chokidar.watch(null, {
+    disableGlobbing: true // treat file strings as literal file names
+  })
+  watcher.on('all', onLinkedFileChange)
 
-
-// // const pdf = require('../pdf')
-
-// // pdf.generatePDF()
-
-// // console.log(document)
-
-
-ipcRenderer.on('ready', () => {
-})
+  watcher.add(scriptPath)
 
   document.querySelector('#revealScript').addEventListener('click', () => {
     if (scriptPath.length) {
       shell.showItemInFolder(scriptPath)
     }
   })
-
 
   document.querySelector('#generateScriptPdf').addEventListener('click', async () => {
     if (scriptPath.length) {
@@ -142,7 +138,6 @@ ipcRenderer.on('ready', () => {
     }
   })
 
-
   document.querySelector('#generateSceneList').addEventListener('click', async () => {
     if (scriptPath.length) {
       await generateSceneList.generate({
@@ -153,7 +148,7 @@ ipcRenderer.on('ready', () => {
       shell.showItemInFolder(path.join(outputDirectory, 'scene-list.csv'))
     }
   })
-
+}
 
 window.ondragover = () => { return false }
 window.ondragleave = () => { return false }
@@ -168,3 +163,7 @@ window.ondrop = e => {
     loadScript(file.path)
   }
 }
+
+ipcRenderer.on('ready', () => {})
+
+init()
