@@ -10,6 +10,8 @@ const generateScriptPdf = require('../tasks/generate-script-pdf')
 const generateOutlinePdf = require('../tasks/generate-outline-pdf')
 const generateSceneList = require('../tasks/generate-scene-list')
 
+const prefs = require('../prefs')
+
 // loads prefs
 // if theres file there, open it
 // watch file for changes
@@ -17,6 +19,9 @@ const generateSceneList = require('../tasks/generate-scene-list')
 // generate stats
 // display them
 // load settings prefs
+
+prefs.init(path.join(app.getPath('userData'), 'prefs.json'))
+console.log('Script Assistant v' + prefs.get('version'))
 
 let scriptPath = "/Users/setpixel/git/explorers-script/EXPLORERS.fountain"
 let outputDirectory = app.getPath('documents')
