@@ -9,7 +9,8 @@
     "dist:mac": "build -m",
     "dist:win": "build -w",
     "dist:linux": "build -l",
-    "dist": "build -mwl"
+    "dist": "build -mwl",
+    "reveal:data": "open ~/Library/Application\\ Support/Script\\ Assistant"
   },
   "repository": {
     "type": "git",
