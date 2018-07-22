@@ -4,27 +4,37 @@ const md5 = require('md5')
 const textToSpeech = require('@google-cloud/text-to-speech')
 const mp3Duration = require('mp3-duration')
 const ffmpeg = require('@ffmpeg-installer/ffmpeg')
+const { app, shell } = require('electron').remote
+
 const fountainParse = require('../fountain-parse')
+const generateStats = require('../generate-stats')
 
 const ffmpegPath = ffmpeg.path
-const exec = require('child_process').exec
+const execa = require('execa')
+
 let child
 
+
+if (!fs.existsSync(path.join(app.getPath('userData'), 'tts.json'))) {
+  console.log("cant find stuff")
+  shell.showItemInFolder(path.join(app.getPath('userData'), 'tts.json'))
+}
+
 const client = new textToSpeech.TextToSpeechClient({
-  keyFilename: 'tts.json'
+  keyFilename: path.join(app.getPath('userData'), 'tts.json')
 })
 
 // set up directories
-if (!fs.existsSync(path.join('exports'))) {
-  fs.mkdirSync(path.join('exports'))
+if (!fs.existsSync(path.join(app.getPath('userData'), 'exports'))) {
+  fs.mkdirSync(path.join(app.getPath('userData'), 'exports'))
 }
 
-if (!fs.existsSync(path.join('exports','chunks'))) {
-  fs.mkdirSync(path.join('exports','chunks'))
+if (!fs.existsSync(path.join(app.getPath('userData'), 'exports','chunks'))) {
+  fs.mkdirSync(path.join(app.getPath('userData'), 'exports','chunks'))
 }
 
-if (!fs.existsSync(path.join('exports','scenes'))) {
-  fs.mkdirSync(path.join('exports','scenes'))
+if (!fs.existsSync(path.join(app.getPath('userData'), 'exports','scenes'))) {
+  fs.mkdirSync(path.join(app.getPath('userData'), 'exports','scenes'))
 }
 
 const renderTTS = (scriptAtom) => {
@@ -126,7 +136,7 @@ const renderTTS = (scriptAtom) => {
       audioConfig: audioConfig
     }
 
-    let filename = path.join('exports', 'chunks', md5(JSON.stringify(request)) + '.mp3')
+    let filename = path.join(app.getPath('userData'), 'exports', 'chunks', md5(JSON.stringify(request)) + '.mp3')
 
     if (fs.existsSync(filename)) {
       mp3Duration(filename, function (err, duration) {
@@ -143,7 +153,13 @@ const renderTTS = (scriptAtom) => {
             reject(err)
           }
           mp3Duration(response.audioContent, function (err, duration) {
-            resolve({filename: filename, duration: duration, type: scriptAtom.type, plainText: scriptAtom.plainText})
+
+            // to avoid rate limit
+            setTimeout(
+              () => resolve({filename: filename, duration: duration, type: scriptAtom.type, plainText: scriptAtom.plainText}),
+              5
+            )
+            
           })
         })
       })
@@ -151,138 +167,159 @@ const renderTTS = (scriptAtom) => {
   })
 }
 
-const renderScene = (scriptArray) => {
-  return new Promise ((resolve, reject) => {
-    let filename = path.join('exports', 'scenes', md5(JSON.stringify(scriptArray)) + '.mp3')
-    if (fs.existsSync(filename+'s')) {
+const renderScene = async (scriptArray) => {
+  return new Promise (async (resolve, reject) => {
+    let filename = path.join(app.getPath('userData'), 'exports', 'scenes', md5(JSON.stringify(scriptArray)) + '.mp3')
+    if (fs.existsSync(filename)) {
       // filename, scene number, duration, pagination
-      resolve({filename: filename})
+      let duration = await mp3Duration(filename)
+      resolve({ filename: filename, duration })
     } else {
-      let tasks = []
+      let arrayOfResults = []
       for (let i = 0; i < scriptArray.length; i++) {
-        tasks.push(renderTTS(scriptArray[i]))
+        let result = await renderTTS(scriptArray[i])
+        arrayOfResults.push(result)
       }
-      return tasks.reduce((promiseChain, currentTask) => {
-        return promiseChain.then(chainResults =>
-          currentTask.then(currentResult =>
-            [ ...chainResults, currentResult ]
-            )
-          )
-        }, Promise.resolve([])).then(arrayOfResults => {
 
-          let args = []
+      let exportFolder = app.getAppPath()
+      let args = []
 
-          for (var i = 0; i < arrayOfResults.length; i++) {
-            switch(arrayOfResults[i].type) {
-              case 'title':
-                // args.push('-i ' + 'soundevents/intro.aiff')
-                break
-              case 'scene_heading':
-                args.push('-i ' + 'src/sounds/events/scene3.aiff')
-                break
-              case 'action':
-                if (arrayOfResults[i].plainText.startsWith('- ')) {
-                  args.push('-i ' + 'src/sounds/events/bullet2.aiff')
-                }
-                break
-              case 'property':
-                let prop = arrayOfResults[i].plainText.split(':')
-                if (prop[0].trim().toLowerCase() == 'audio') {
-                  args.push('-i ' + path.join(path.dirname(inputPath),prop[1].trim().toLowerCase()))
-                }
-                break
+      for (var i = 0; i < arrayOfResults.length; i++) {
+        switch(arrayOfResults[i].type) {
+          case 'title':
+            // args.push('-i ' + 'soundevents/intro.aiff')
+            break
+          case 'scene_heading':
+            args = args.concat(['-i', '"' + path.join(exportFolder, 'src/sounds/events/scene3.aiff' + '"')])
+            break
+          case 'action':
+            if (arrayOfResults[i].plainText.startsWith('- ')) {
+              args = args.concat(['-i', '"' + path.join(exportFolder, 'src/sounds/events/bullet2.aiff') + '"'])
             }
-            if (arrayOfResults[i].type !== 'property') {
-              args.push('-i ' + arrayOfResults[i].filename)
+            break
+          case 'property':
+            let prop = arrayOfResults[i].plainText.split(':')
+            if (prop[0].trim().toLowerCase() == 'audio') {
+              args = args.concat(['-i', '"' + path.join(path.dirname(inputPath),prop[1].trim().toLowerCase()) + '"' ])
             }
-          }
+            break
+        }
+        if (arrayOfResults[i].type !== 'property') {
 
-          args.push('-filter_complex \"')
+          console.log("SUPPPPP", path.join(app.getPath('userData'), arrayOfResults[i].filename))
 
-          let d = 0
-          for (var i = 0; i < arrayOfResults.length; i++) {
-            if (arrayOfResults[i].duration) {
-              d += Math.round((arrayOfResults[i].duration)*1000)
-            }
-          }
+          args = args.concat(['-i', '"' + path.join(arrayOfResults[i].filename) + '"'])
+        }
+      }
 
-          let currentOffset = 0
-          let currentSoundIndex = 0
-          let filter = []
+      args.push('-filter_complex')
 
-          for (var i = 0; i < arrayOfResults.length; i++) {
-            let afterDelay = 0
-            switch(arrayOfResults[i].type) {
-              case 'title':
-                // filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.1,afade=t=out:st=' + (((d+3000)/1000)-5) + ':d=5[s' + currentSoundIndex + '];')
-                currentOffset += 1000
-                // afterDelay = 3000
-                // currentSoundIndex++
-                break
-              case 'scene_heading':
-                filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.3,afade=t=out:st=' + (((d+3000)/1000)-5) + ':d=5[s' + currentSoundIndex + '];')
-                currentOffset += 1000
-                afterDelay = 1000
-                currentSoundIndex++
-                break
-              case 'action':
-                if (arrayOfResults[i].plainText.startsWith('- ')) {
-                  filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.4[s' + currentSoundIndex + '];')
-                  currentOffset += 200
-                  afterDelay = 0
-                  currentSoundIndex++
-                }
-                break
-              case 'property':
-                let prop = arrayOfResults[i].plainText.split(':')
-                if (prop[0].trim().toLowerCase() == 'audio') {
-                  filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.2,afade=t=out:st=' + (((d+3000)/1000)-5) + ':d=5[s' + currentSoundIndex + '];')
-                  currentOffset += 10
-                  afterDelay = 0
-                  currentSoundIndex++
-                }
-                break
-            }
-            if (arrayOfResults[i].duration) {
-              filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + '[s' + currentSoundIndex + '];')
-              currentOffset += Math.round((arrayOfResults[i].duration)*1000) + afterDelay
+      let d = 0
+      for (var i = 0; i < arrayOfResults.length; i++) {
+        if (arrayOfResults[i].duration) {
+          d += Math.round((arrayOfResults[i].duration)*1000)
+        }
+      }
+
+      let currentOffset = 0
+      let currentSoundIndex = 0
+      let filter = []
+
+      for (var i = 0; i < arrayOfResults.length; i++) {
+        let afterDelay = 0
+        switch(arrayOfResults[i].type) {
+          case 'title':
+            // filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.1,afade=t=out:st=' + (((d+3000)/1000)-5) + ':d=5[s' + currentSoundIndex + '];')
+            currentOffset += 1000
+            // afterDelay = 3000
+            // currentSoundIndex++
+            break
+          case 'scene_heading':
+            filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.3,afade=t=out:st=' + (((d+3000)/1000)-5) + ':d=5[s' + currentSoundIndex + '];')
+            currentOffset += 1000
+            afterDelay = 1000
+            currentSoundIndex++
+            break
+          case 'action':
+            if (arrayOfResults[i].plainText.startsWith('- ')) {
+              filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.4[s' + currentSoundIndex + '];')
+              currentOffset += 200
+              afterDelay = 0
               currentSoundIndex++
             }
-          }
-
-          let mixstring = ''
-
-          for (var i = 0; i < currentSoundIndex; i++) {
-            mixstring += '[s' + i + ']'
-          }
-          mixstring += 'amix=' + (currentSoundIndex) +  ':dropout_transition=99999999,volume=' + (currentSoundIndex) + '[mixout]\"'
-
-          args.push(filter.join('')+mixstring)
-
-          args.push('-map [mixout]a -ac 2 -b:a 192k -ar 44100 -y -t ' + ((currentOffset/1000)+1) + ' ' + filename)
-          
-          console.log(ffmpegPath + ' ' + args.join(' '))
-
-          child = exec(ffmpegPath + ' ' + args.join(' '), function (error, stdout, stderr) {
-            if (error) {
-              reject(error)
+            break
+          case 'property':
+            let prop = arrayOfResults[i].plainText.split(':')
+            if (prop[0].trim().toLowerCase() == 'audio') {
+              filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.2,afade=t=out:st=' + (((d+3000)/1000)-5) + ':d=5[s' + currentSoundIndex + '];')
+              currentOffset += 10
+              afterDelay = 0
+              currentSoundIndex++
             }
-            if (error) {
-              reject(error)
-            }
+            break
+        }
+        if (arrayOfResults[i].duration) {
+          filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + '[s' + currentSoundIndex + '];')
+          currentOffset += Math.round((arrayOfResults[i].duration)*1000) + afterDelay
+          currentSoundIndex++
+        }
+      }
 
-            // console.log('err: ' + error);
-            // console.log('stdout: ' + stdout);
-            // console.log('err: ' + stderr);
+      let mixstring = ''
 
-            resolve({filename: filename})
+      for (var i = 0; i < currentSoundIndex; i++) {
+        mixstring += '[s' + i + ']'
+      }
+      mixstring += 'amix=' + (currentSoundIndex) +  ':dropout_transition=99999999,volume=' + (currentSoundIndex) + '[mixout]'
 
-          })
+      args.push("'" + filter.join('')+ mixstring+ "'")
 
+      args = args.concat(['-map', '[mixout]a', '-ac', '2', '-b:a', '192k', '-ar', '44100', '-y', '-t', ((currentOffset/1000)+1), '"' + filename + '"'])
+      
+      console.log({ ffmpegPath, args })
 
-          console.log(arrayOfResults)
+      let totalDurationInSeconds = currentOffset / 1000
+      console.log({ totalDurationInSeconds, currentOffset })
 
+      child = execa(ffmpegPath, args, {shell: true})
+      const timeRegex = /time=(\d\d:\d\d:\d\d.\d\d)/gm
+      child.stderr.on('data', data => {
+        let m = data.toString().match(timeRegex)
+
+        if (m) {
+          m = m[0].substring(5)
+          let parts = m.split(':')
+
+          let seconds = (Number(parts[0]) * 60 * 60) + (Number(parts[1]) * 60) + (Number(parts[2]))
+                console.log(seconds, totalDurationInSeconds, Math.round(seconds/totalDurationInSeconds*100) + '%')
+        }
       })
+      child.on('error', (err) => {
+        console.error(err)
+        reject(err)
+      })
+      child.on('exit', async code => {
+        if (code !== 0) {
+          reject(Error(`Could not use ffmpeg. Failed with error ${code}`))
+        } else {
+
+          console.log('done with scene')
+
+          // when done:
+          let duration = await mp3Duration(filename)
+          resolve({ filename: filename, duration })
+
+        }
+      })
+      child.catch(err => {
+        console.error(err)
+        reject(err)
+      })
+
+
+
+      // console.log(arrayOfResults)
+
     }
   })
 }
@@ -301,14 +338,56 @@ const generate = async (options = {}) => {
   // pass the type back to the processor
   // based on the pro
   // concat scenes together
-  console.log(options.inputPath)
-  console.log('scriptdata', scriptData)
 
   let scriptArray = [[]]
 
   let currentScene = 0
 
-  if (scriptData.title) {
+  for (var i = 0; i < scriptData.script.length; i++) {
+    switch(scriptData.script[i].type) {
+      case 'centered':
+      case 'action':
+      case 'property':
+      case 'character':
+      case 'dialogue':
+      case 'parenthetical':
+      case 'transition':
+        scriptArray[currentScene].push(scriptData.script[i])
+        break
+      case 'scene_heading':
+        scriptArray.push([scriptData.script[i]])
+        currentScene++
+    }
+  }
+
+  let renderSceneTasks = []
+
+  let fromScene
+  fromScene = 0
+  //fromScene = 80
+
+
+  let toScene
+  toScene = 3
+  //toScene = scriptArray.length
+
+
+  let arrayOfResults = []
+
+  let totalDuration = 0
+
+  for (var i = fromScene; i < toScene; i++) {
+    let result = await renderScene(scriptArray[i])
+    totalDuration += result.duration
+    arrayOfResults.push(result)
+  }
+
+  console.log(totalDuration)
+  let stats = await generateStats.generate(options)
+  console.log(stats.duration)
+
+
+  if (scriptData.title && fromScene == 0) {
     let scene = []
     let author
     for (var i = 0; i < scriptData.title.length; i++) {
@@ -331,87 +410,98 @@ const generate = async (options = {}) => {
           break
       }
     }
-    scene.push({plainText: 'Approximate screen time: 90 minutes.', type: 'action'})
-    scene.push({plainText: 'This reading is 140 minutes.', type: 'action'})
+    scene.push({plainText: stats.pageCount + ' pages.', type: 'action'})
+    scene.push({plainText: 'Approximate screen time: ' + Math.round(stats.duration/1000/60) + ' minutes.', type: 'action'})
+    scene.push({plainText: 'This reading is ' + Math.round(totalDuration/60) + ' minutes.', type: 'action'})
     scene.push({plainText: 'If you have any questions or comments, please dont hesitate to email ' + author + '. Thank you.', type: 'dialogue'})
-    scriptArray[currentScene]= scene
-    scriptArray.push([])
-    currentScene++
+     //scriptArray.push([])
+    //currentScene++
+      let result = await renderScene(scene)
+      arrayOfResults.unshift(result)
+
   }
 
-  for (var i = 0; i < scriptData.script.length; i++) {
-    switch(scriptData.script[i].type) {
-      case 'centered':
-      case 'action':
-      case 'property':
-      case 'character':
-      case 'dialogue':
-      case 'parenthetical':
-      case 'transition':
-        scriptArray[currentScene].push(scriptData.script[i])
-        break
-      case 'scene_heading':
-        scriptArray.push([scriptData.script[i]])
-        currentScene++
-    }
+
+
+  // return renderSceneTasks.reduce((promiseChain, currentTask) => {
+  //   return promiseChain.then(chainResults =>
+  //     currentTask.then(currentResult =>
+  //       [ ...chainResults, currentResult ]
+  //       )
+  //     )
+  //   }, Promise.resolve([])).then(arrayOfResults => {
+
+  console.log(arrayOfResults)
+
+  let exportFolder = app.getAppPath()
+  console.log({ exportFolder })
+
+  let args = []
+  let totalDurationInSeconds = 0
+  for (var i = 0; i < arrayOfResults.length; i++) {
+    totalDurationInSeconds += arrayOfResults[i].duration
+    args = args.concat(['-i', '"' + path.join(arrayOfResults[i].filename) + '"'])
   }
+  args.push('-filter_complex')
 
-  let renderSceneTasks = []
+  let mixstring = ''
 
-  let fromScene
-  fromScene = 2
-  //fromScene = 80
-
-
-  let toScene
-  toScene = 2
-  toScene = scriptArray.length
-
-
-  for (var i = fromScene; i < toScene; i++) {
-    renderSceneTasks.push(renderScene(scriptArray[i]))
+  for (var i = 0; i < arrayOfResults.length; i++) {
+    mixstring += '[' + i + ':0]'
   }
+  mixstring += 'concat=' + (arrayOfResults.length) +  ':v=0:a=1[mixout]'
 
-  return renderSceneTasks.reduce((promiseChain, currentTask) => {
-    return promiseChain.then(chainResults =>
-      currentTask.then(currentResult =>
-        [ ...chainResults, currentResult ]
-        )
-      )
-    }, Promise.resolve([])).then(arrayOfResults => {
+  args.push("'" + mixstring + "'")
 
-    console.log(arrayOfResults)
+  args = args.concat(['-map', '[mixout]', '-ac', '2', '-b:a', '192k', '-ar', '44100', '-y', options.outputPath ])
 
-    let args = []
-    for (var i = 0; i < arrayOfResults.length; i++) {
-      args.push('-i ' + arrayOfResults[i].filename)
+  console.log({ ffmpegPath, args })
+
+  child = execa(ffmpegPath, args, {shell: true})
+  const timeRegex = /time=(\d\d:\d\d:\d\d.\d\d)/gm
+  child.stderr.on('data', data => {
+    // data = data.toString().trim()
+
+
+
+
+    //"00:00:16.30"
+    //totalDurationInSeconds
+
+
+
+    console.log(data.toString())
+    let m = data.toString().match(timeRegex)
+
+    if (m) {
+      m = m[0].substring(5)
+      let parts = m.split(':')
+
+
+      let seconds = (Number(parts[0]) * 60 * 60) + (Number(parts[1]) * 60) + (Number(parts[2]))
+            console.log(seconds, totalDurationInSeconds, Math.round(seconds/totalDurationInSeconds*100) + '%')
+
     }
-    args.push('-filter_complex \"')
-
-    let mixstring = ''
-
-    for (var i = 0; i < arrayOfResults.length; i++) {
-      mixstring += '[' + i + ':0]'
+  })
+  child.on('error', (err) => {
+    console.error(err)
+    throw err
+  })
+  child.on('exit', code => {
+    if (code !== 0) {
+      throw new Error(`Could not use ffmpeg. Failed with error ${code}`)
+    } else {
+      console.log('done')
     }
-    mixstring += 'concat=' + (arrayOfResults.length) +  ':v=0:a=1[mixout]\"'
-
-    args.push(mixstring)
-
-    args.push('-map [mixout] -ac 2 -b:a 192k -ar 44100 -y output.mp3')
-      child = exec(ffmpegPath + ' ' + args.join(' '), function (error, stdout, stderr) {
-        if (error) {
-          console.log(error)
-        }
-        if (stderr) {
-          console.log(stderr)
-        }
-        if (stdout) {
-          console.log(stdout)
-        }
-      })
-    })
+  })
+  child.catch(err => {
+    console.error(err)
+    throw err
+  })
 
 }
+
+
 
 
 // /Users/setpixel/git/scriptreader/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg -i output.mp3 -filter_complex "[0:a]avectorscope=s=480x480:zoom=1.5:rc=0:gc=200:bc=0:rf=0:gf=40:bf=0,format=yuv420p[v];  [v]pad=854:480:187:0[out]" -map "[out]" -map 0:a -b:v 700k -b:a 360k OUTPUT_VIDEO.mp4

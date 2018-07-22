@@ -1,10 +1,10 @@
 body {
   margin: 0;
-  padding: 50px;
+  padding: 0;
   color: black;
   font-family: 'wonderunitsans';
   font-weight: 300;
-  background: #333333;
+  background: #ccc;
   user-select: none;
   -webkit-user-select: none;
   cursor:default;
@@ -16,11 +16,17 @@ body {
   width: 100vw;
 
   -webkit-app-region: drag;
+
+  display: flex;
+  flex-direction: row;
 }
 
 #title {
-  font-size: 30px;
+  font-size: 60px;
   font-weight: 800;
+  margin-bottom: 20px;
+  display: inline-block;
+  color: #222;
 }
 
 button {
@@ -35,7 +41,7 @@ button {
   line-height: 1.2;
   white-space: nowrap;
   text-decoration: none;
-  padding: 20px 40px;
+  padding: 20px 20px;
   margin: 0.25rem;
 }
 
@@ -45,4 +51,113 @@ button:hover {
 
 button:active {
   background: green;
+}
+
+button:disabled {
+  background: gray;
+}
+
+#main {
+  flex: 2;
+  padding: 50px;
+  display: flex;
+  flex-direction: column;
+
+}
+
+#content {
+  flex: 2;
+}
+
+#outputs {
+  display: flex;
+  flex-direction: row;
+
+}
+
+#outputs button {
+  flex: 1;
+  height: 150px;
+}
+
+
+
+#right {
+  width: 400px;
+  background: #bbb;
+  display: flex;
+  flex-direction: column;
+    align-content: flex-end;
+
+}
+
+#chat::-webkit-scrollbar { 
+    display: none; 
+}
+
+#chat {
+  flex: 1;
+  padding: 20px 20px 10px 20px;
+  overflow: scroll;
+  display: flex;
+  flex-direction: column;
+
+  /*align-items: flex-end;*/
+}
+
+#chat-input {
+  height: 70px;
+  background: #ddd;
+}
+
+#chat-input input {
+  -webkit-app-region: no-drag;
+  height: 100%;
+  width: 100%;
+  outline: 0;
+  background: none;
+  border: 0;
+  font-size: 15px;
+  padding: 0 20px;
+}
+
+.blurb {
+  background: #ddd;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin-bottom: 10px;
+  font-weight: 400;
+  color: #555;
+  line-height: 1.5em;
+  flex-shrink: 1;
+  align-self: flex-end;
+  max-width: 250px;
+}
+
+.blurb.user {
+  background: #eee;
+  align-self: flex-start;
+}
+
+#timeline {
+  display: flex;
+  flex-direction: row;
+  height: 100px;
+  border-radius: 5px;
+  /*overflow: hidden;*/
+  margin-top: 20px;
+}
+
+#timeline .section {
+  width: 100px;
+  display: block;
+  position: absolute;
+  top: -20px;
+}
+
+.tippy-tooltip.settings-theme {
+  /* Your styling here. Example: */
+  border-radius: 10px;
+  padding: 30px;
+  text-align: left;
 }

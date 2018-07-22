@@ -6,8 +6,6 @@ const BrowserWindow = electron.BrowserWindow
 const path = require('path')
 const url = require('url')
 
-
-
 let mainWindow
 
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = true
@@ -16,15 +14,17 @@ function createWindow () {
 
   mainWindow = new BrowserWindow({
     width: 1200, 
-    height: 600, 
+    height: 715, 
     minWidth: 1200, 
-    minHeight: 600, 
+    minHeight: 715, 
     x: 0,
     y: 0,
     show: false,
     center: true,
     frame: false,
     titleBarStyle: 'hiddenInset',
+    acceptFirstMouse: true,
+    simpleFullscreen: true,
     webPreferences: {
       plugins: true,
       webSecurity: false,

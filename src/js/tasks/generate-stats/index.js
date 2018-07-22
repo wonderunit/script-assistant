@@ -44,6 +44,8 @@ const titleCase = (str) =>  {
 const generate = async (options = {}) => {
   let scriptData = parseScript(options.inputPath)
 
+  let filestats = fs.statSync(options.inputPath)
+
   // title
   let title = path.basename(options.inputPath, '.fountain')
   for (var i = 0; i < scriptData.title.length; i++) {
@@ -134,12 +136,12 @@ const generate = async (options = {}) => {
     noteCount: noteCount,
     duration: duration,
     characters: sortedValues(characters), 
-    locations: sortedValues(locations), 
+    locations: sortedValues(locations),
+    modifiedAt: filestats.mtime,
+    scriptData: scriptData
   }
 
 }
-
-
 
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
@@ -147,7 +149,83 @@ const parseScript = (filepath) => {
   return scriptData
 }
 
+const diff = (stats1, stats2) => {
+  if (stats1 && stats2) {
+    if (stats1.title !== stats2.title) {
+      console.log('title', stats1.title, stats2.title)
+    }
+    if (stats1.pageCount !== stats2.pageCount) {
+      console.log('pageCount', stats1.pageCount, stats2.pageCount)
+    }
+    if (stats1.wordCount !== stats2.wordCount) {
+      console.log('wordCount', stats1.wordCount, stats2.wordCount)
+    }
+    if (stats1.sceneCount !== stats2.sceneCount) {
+      console.log('sceneCount', stats1.sceneCount, stats2.sceneCount)
+    }
+    if (stats1.noteCount !== stats2.noteCount) {
+      console.log('noteCount', stats1.noteCount, stats2.noteCount)
+    }
+    if (stats1.duration !== stats2.duration) {
+      console.log('duration', stats1.duration, stats2.duration)
+    }
+
+    if (stats1.characters.length !== stats2.characters.length) {
+      console.log('characters', stats1.characters.length, stats2.characters.length)
+    }
+
+    if (stats1.locations.length !== stats2.locations.length) {
+      console.log('locations', stats1.locations.length, stats2.locations.length)
+    }
+
+    let currentScene = 0
+    let sceneName
+
+    for (var i = 0; i < stats1.scriptData.script.length; i++) {
+      if (stats1.scriptData.script[i].text && stats2.scriptData.script[i].text) {
+        if (stats1.scriptData.script[i].type == 'scene_heading') {
+          currentScene++
+          sceneName = stats1.scriptData.script[i].plainText
+        }
+
+        if (stats1.scriptData.script[i].text !== stats2.scriptData.script[i].text) {
+          console.log('script', currentScene, sceneName, stats1.scriptData.script[i],  stats2.scriptData.script[i])
+          break
+        }
+      }
+
+    }
+
+  }
+}
+
+const isEquivalent = (a, b) => {
+    // Create arrays of property names
+    var aProps = Object.getOwnPropertyNames(a);
+    var bProps = Object.getOwnPropertyNames(b);
+
+    // If number of properties is different,
+    // objects are not equivalent
+    if (aProps.length != bProps.length) {
+        return false;
+    }
+
+    for (var i = 0; i < aProps.length; i++) {
+        var propName = aProps[i];
+
+        // If values of same property are not equal,
+        // objects are not equivalent
+        if (a[propName] !== b[propName]) {
+            return false;
+        }
+    }
+
+    // If we made it this far, objects
+    // are considered equivalent
+    return true;
+}
 
 module.exports = {
-  generate
+  generate,
+  diff
 }

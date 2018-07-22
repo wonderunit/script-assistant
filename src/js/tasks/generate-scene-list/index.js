@@ -41,13 +41,19 @@ const titleCase = (str) =>  {
   return str.join(' ')
 }
 
+
+let progressCallback
+let doneCallback
+
 const generate = async (options = {}) => {
   let scriptData = parseScript(options.inputPath)
+
+  progressCallback = options.progressCallback
+  doneCallback = options.doneCallback
 
   // page count
   let pages = await generateScriptPdf.getPages(options)
   pages = pages.pageCount
-
 
   let scenes = []
 
@@ -55,6 +61,8 @@ const generate = async (options = {}) => {
   let currentAct = ''
   let noteCount = 0 
   let currentScene
+
+  progressCallback("started")
 
   for (var i = 0; i < scriptData.script.length; i++) {
     if (scriptData.script[i].plainText) {
@@ -114,26 +122,69 @@ const generate = async (options = {}) => {
     scenes.push(currentScene)
   }
 
-  //console.log(scenes)
+  let settings = options.settings
 
-  csvText = `ACT,Scene,Notes,Seconds,TODO,ROUGH,COMPLETE\n`
+  let csvText = ''
+  let csvLine = []
+
+  if (settings.includeAct) {
+    csvLine.push('ACT')
+  }
+  csvLine.push('Scene')
+  if (settings.includeNotes) {
+    csvLine.push('Notes')
+  }
+  if (settings.includeSeconds) {
+    csvLine.push('Seconds')
+  }
+  if (settings.includeTodo) {
+    csvLine.push('TODO')
+  }
+  if (settings.includeRough) {
+    csvLine.push('ROUGH')
+  }
+  if (settings.includeComplete) {
+    csvLine.push('COMPLETE')
+  }
+  
+  csvText += csvLine.join(',') + `\n`
 
   for (var i = 0; i < scenes.length; i++) {
-    csvText += scenes[i].currentAct + `,`
-    csvText += scenes[i].slugline.split(',').join('-') + `,`
-    csvText += scenes[i].noteCount + `,`
-    csvText += Math.round(scenes[i].duration/1000) + `,`
-
-    csvText += `,`
-    csvText += `,`
-
-    csvText += `\n`
+    csvLine = []
+    if (settings.includeAct) {
+      csvLine.push(scenes[i].currentAct)
+    }
+    csvLine.push(scenes[i].slugline.split(',').join('-'))
+    if (settings.includeNotes) {
+      if (scenes[i].noteCount > 0 ) {
+        csvLine.push(scenes[i].noteCount)
+      } else {
+        csvLine.push('')
+      }
+    }
+    if (settings.includeSeconds) {
+      csvLine.push(Math.round(scenes[i].duration/1000))
+    }
+    if (settings.includeTodo) {
+      csvLine.push('')
+    }
+    if (settings.includeRough) {
+      csvLine.push('')
+    }
+    if (settings.includeComplete) {
+      csvLine.push('')
+    }
+    csvText += csvLine.join(',') + `\n`
   }
+
+  progressCallback("writing")
+
 
   fs.writeFile(options.outputPath, csvText, function(err) {
     if(err) {
       return console.log(err)
     }
+    doneCallback('done!')
   }) 
 }
 
@@ -145,7 +196,21 @@ const parseScript = (filepath) => {
   return scriptData
 }
 
+const getSettings = () => {
+  let settings = [
+    { id: 'includeAct', label: 'Include Act', type: 'checkbox', default: true },
+    { id: 'includeNotes', label: 'Include Notes', type: 'checkbox', default: true },
+    { id: 'includeSeconds', label: 'Include Seconds', type: 'checkbox', default: true },
+    { id: 'includeTodo', label: 'Include TODO', type: 'checkbox', default: true },
+    { id: 'includeRough', label: 'Include ROUGH', type: 'checkbox', default: true },
+    { id: 'includeComplete', label: 'Include COMPLETE', type: 'checkbox', default: true },
+  ]
+
+  return settings
+}
+
 
 module.exports = {
-  generate
+  generate,
+  getSettings
 }

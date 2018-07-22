@@ -6,19 +6,58 @@
   </head>
   <body>
 
-    <div id="title"></div>
-    <div id="stats"></div>
+    <div id="main">
+
+      <div id="content">
+
+        <div id="title"></div><button id="editScript" title="Open Script in Editor"></button><button id="revealScript" title="Show Script in Folder"></button>
+        <div id="stats"></div>
 
 
-      <button id="revealScript">(No Script)</button>
+        <div id="timeline">
+          <div style="position: relative;"><div class="section">Act 1</div></div>
+          <div style="flex: 10; background: red;"></div>
+          <div style="flex: 5; background: blue;"></div>
+          <div style="flex: 10; background: red;"></div>
+          <div style="flex: 5; background: blue;"></div>
+          <div style="flex: 10; background: red;"></div>
+          <div style="position: relative;"><div class="section">Act 1</div></div>
+          <div style="flex: 5; background: blue;"></div>
+          <div style="flex: 10; background: red;"></div>
+          <div style="flex: 5; background: blue;"></div>
+          <div style="flex: 10; background: red;"></div>
+          <div style="flex: 5; background: blue;"></div>
+          <div style="flex: 10; background: red;"></div>
+          <div style="position: relative;"><div class="section">Act 1</div></div>
+          <div style="flex: 5; background: blue;"></div>
+          <div style="flex: 10; background: red;"></div>
+          <div style="flex: 5; background: blue;"></div>
+        </div>
 
-      <br/>
-      <br/>
+        <div id="tooltipHTML">I am a <h1>Tooltip</h1><button id="sup" title="sup">Export Scene List</button></div>
+        <div id="tooltipHTML2">I am a <h1>Tooltip sdhjkfkajs dfhakjsdhf</h1><button id="sup" title="sup">Export Scene List</button></div>
 
-      <button id="generateScriptPdf">Export Script PDF</button>
-      <button id="generateOutlinePdf">Export Outline PDF</button>
-      <button id="generateReader">Export Reader MP3</button>
-      <button id="generateSceneList">Export Scene List</button>
+
+      </div>
+        
+      <div id="outputs">
+
+        <button id="generateScriptPdf" title="Export a script PDF!!!">Export Script PDF</button>
+        <button id="generateOutlinePdf">Export Outline PDF</button>
+        <button id="generateReader">Export Reader MP3</button>
+        <button id="generateSceneList">Export Scene List</button>
+      </div>
+
+    </div>
+    <div id="right">
+      <div id="chat">
+        <div style="flex: 1;"></div>
+      </div>
+      <div id="chat-input">
+        <input type="text" name="fname" placeholder="type here...">
+      </div>
+
+    </div>
 
 
   <script>
