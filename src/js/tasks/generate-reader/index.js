@@ -4,37 +4,38 @@ const md5 = require('md5')
 const textToSpeech = require('@google-cloud/text-to-speech')
 const mp3Duration = require('mp3-duration')
 const ffmpeg = require('@ffmpeg-installer/ffmpeg')
+const electronUtil = require('electron-util')
 const { app, shell } = require('electron').remote
 
 const fountainParse = require('../fountain-parse')
 const generateStats = require('../generate-stats')
 
-const ffmpegPath = ffmpeg.path
+const ffmpegPath = electronUtil.fixPathForAsarUnpack(ffmpeg.path)
 const execa = require('execa')
 
 let child
 
-
 if (!fs.existsSync(path.join(app.getPath('userData'), 'tts.json'))) {
   console.log("cant find stuff")
-  shell.showItemInFolder(path.join(app.getPath('userData'), 'tts.json'))
+  shell.showItemInFolder(path.join(app.getPath('userData')))
 }
 
 const client = new textToSpeech.TextToSpeechClient({
   keyFilename: path.join(app.getPath('userData'), 'tts.json')
 })
 
-// set up directories
-if (!fs.existsSync(path.join(app.getPath('userData'), 'exports'))) {
-  fs.mkdirSync(path.join(app.getPath('userData'), 'exports'))
-}
+const setUpDirectories = () => {
+  if (!fs.existsSync(path.join(app.getPath('userData'), 'exports'))) {
+    fs.mkdirSync(path.join(app.getPath('userData'), 'exports'))
+  }
 
-if (!fs.existsSync(path.join(app.getPath('userData'), 'exports','chunks'))) {
-  fs.mkdirSync(path.join(app.getPath('userData'), 'exports','chunks'))
-}
+  if (!fs.existsSync(path.join(app.getPath('userData'), 'exports','chunks'))) {
+    fs.mkdirSync(path.join(app.getPath('userData'), 'exports','chunks'))
+  }
 
-if (!fs.existsSync(path.join(app.getPath('userData'), 'exports','scenes'))) {
-  fs.mkdirSync(path.join(app.getPath('userData'), 'exports','scenes'))
+  if (!fs.existsSync(path.join(app.getPath('userData'), 'exports','scenes'))) {
+    fs.mkdirSync(path.join(app.getPath('userData'), 'exports','scenes'))
+  }
 }
 
 const renderTTS = (scriptAtom) => {
@@ -167,8 +168,10 @@ const renderTTS = (scriptAtom) => {
   })
 }
 
-const renderScene = async (scriptArray) => {
+const renderScene = async (scriptArray, progressString) => {
   return new Promise (async (resolve, reject) => {
+    progressCallback({string: progressString, chatID: chatID})
+
     let filename = path.join(app.getPath('userData'), 'exports', 'scenes', md5(JSON.stringify(scriptArray)) + '.mp3')
     if (fs.existsSync(filename)) {
       // filename, scene number, duration, pagination
@@ -177,6 +180,7 @@ const renderScene = async (scriptArray) => {
     } else {
       let arrayOfResults = []
       for (let i = 0; i < scriptArray.length; i++) {
+        progressCallback({string: progressString + ' Generating sentence ' + (i+1) + ' of ' + scriptArray.length, chatID: chatID})
         let result = await renderTTS(scriptArray[i])
         arrayOfResults.push(result)
       }
@@ -205,9 +209,6 @@ const renderScene = async (scriptArray) => {
             break
         }
         if (arrayOfResults[i].type !== 'property') {
-
-          console.log("SUPPPPP", path.join(app.getPath('userData'), arrayOfResults[i].filename))
-
           args = args.concat(['-i', '"' + path.join(arrayOfResults[i].filename) + '"'])
         }
       }
@@ -281,7 +282,7 @@ const renderScene = async (scriptArray) => {
       let totalDurationInSeconds = currentOffset / 1000
       console.log({ totalDurationInSeconds, currentOffset })
 
-      child = execa(ffmpegPath, args, {shell: true})
+      child = execa('"' + ffmpegPath + '"', args, {shell: true})
       const timeRegex = /time=(\d\d:\d\d:\d\d.\d\d)/gm
       child.stderr.on('data', data => {
         let m = data.toString().match(timeRegex)
@@ -291,7 +292,8 @@ const renderScene = async (scriptArray) => {
           let parts = m.split(':')
 
           let seconds = (Number(parts[0]) * 60 * 60) + (Number(parts[1]) * 60) + (Number(parts[2]))
-                console.log(seconds, totalDurationInSeconds, Math.round(seconds/totalDurationInSeconds*100) + '%')
+      
+          progressCallback({string: progressString + ' Merging scene: ' + Math.round(seconds/totalDurationInSeconds*100) + '%', chatID: chatID})
         }
       })
       child.on('error', (err) => {
@@ -324,25 +326,25 @@ const renderScene = async (scriptArray) => {
   })
 }
 
+let progressCallback
+let doneCallback
+let finishedCallback
+let chatID
+
 let inputPath
 
 const generate = async (options = {}) => {
+  progressCallback = options.progressCallback
+  doneCallback = options.doneCallback
+  finishedCallback = options.finishedCallback
+  chatID = options.chatID
+  progressCallback({string: "started", chatID: chatID})
+  setUpDirectories()
   inputPath = options.inputPath
-
   let contents = fs.readFileSync(options.inputPath, "utf8");
   let scriptData = fountainParse.parse(contents)
-
-  // break up the script by scene
-  // process by the scene
-  // check if the scene already exists
-  // pass the type back to the processor
-  // based on the pro
-  // concat scenes together
-
   let scriptArray = [[]]
-
   let currentScene = 0
-
   for (var i = 0; i < scriptData.script.length; i++) {
     switch(scriptData.script[i].type) {
       case 'centered':
@@ -359,34 +361,25 @@ const generate = async (options = {}) => {
         currentScene++
     }
   }
-
   let renderSceneTasks = []
-
   let fromScene
   fromScene = 0
   //fromScene = 80
-
-
   let toScene
-  toScene = 3
+  toScene = 7
   //toScene = scriptArray.length
-
-
   let arrayOfResults = []
-
   let totalDuration = 0
-
   for (var i = fromScene; i < toScene; i++) {
-    let result = await renderScene(scriptArray[i])
+    let result = await renderScene(scriptArray[i], 'Scene ' + i + ' of ' + toScene + '. ')
     totalDuration += result.duration
     arrayOfResults.push(result)
   }
 
-  console.log(totalDuration)
   let stats = await generateStats.generate(options)
   console.log(stats.duration)
 
-
+  // render title page
   if (scriptData.title && fromScene == 0) {
     let scene = []
     let author
@@ -414,27 +407,11 @@ const generate = async (options = {}) => {
     scene.push({plainText: 'Approximate screen time: ' + Math.round(stats.duration/1000/60) + ' minutes.', type: 'action'})
     scene.push({plainText: 'This reading is ' + Math.round(totalDuration/60) + ' minutes.', type: 'action'})
     scene.push({plainText: 'If you have any questions or comments, please dont hesitate to email ' + author + '. Thank you.', type: 'dialogue'})
-     //scriptArray.push([])
-    //currentScene++
-      let result = await renderScene(scene)
-      arrayOfResults.unshift(result)
-
+    let result = await renderScene(scene, 'Title page. ')
+    arrayOfResults.unshift(result)
   }
 
-
-
-  // return renderSceneTasks.reduce((promiseChain, currentTask) => {
-  //   return promiseChain.then(chainResults =>
-  //     currentTask.then(currentResult =>
-  //       [ ...chainResults, currentResult ]
-  //       )
-  //     )
-  //   }, Promise.resolve([])).then(arrayOfResults => {
-
-  console.log(arrayOfResults)
-
   let exportFolder = app.getAppPath()
-  console.log({ exportFolder })
 
   let args = []
   let totalDurationInSeconds = 0
@@ -445,42 +422,22 @@ const generate = async (options = {}) => {
   args.push('-filter_complex')
 
   let mixstring = ''
-
   for (var i = 0; i < arrayOfResults.length; i++) {
     mixstring += '[' + i + ':0]'
   }
   mixstring += 'concat=' + (arrayOfResults.length) +  ':v=0:a=1[mixout]'
-
   args.push("'" + mixstring + "'")
-
   args = args.concat(['-map', '[mixout]', '-ac', '2', '-b:a', '192k', '-ar', '44100', '-y', options.outputPath ])
-
-  console.log({ ffmpegPath, args })
-
-  child = execa(ffmpegPath, args, {shell: true})
+  // console.log({ ffmpegPath, args })
+  child = execa('"' + ffmpegPath + '"', args, {shell: true})
   const timeRegex = /time=(\d\d:\d\d:\d\d.\d\d)/gm
   child.stderr.on('data', data => {
-    // data = data.toString().trim()
-
-
-
-
-    //"00:00:16.30"
-    //totalDurationInSeconds
-
-
-
-    console.log(data.toString())
     let m = data.toString().match(timeRegex)
-
     if (m) {
       m = m[0].substring(5)
       let parts = m.split(':')
-
-
       let seconds = (Number(parts[0]) * 60 * 60) + (Number(parts[1]) * 60) + (Number(parts[2]))
-            console.log(seconds, totalDurationInSeconds, Math.round(seconds/totalDurationInSeconds*100) + '%')
-
+      progressCallback({string: "Last step: merging together... " + Math.round(seconds/totalDurationInSeconds*100) + '%', chatID: chatID})
     }
   })
   child.on('error', (err) => {
@@ -492,21 +449,33 @@ const generate = async (options = {}) => {
       throw new Error(`Could not use ffmpeg. Failed with error ${code}`)
     } else {
       console.log('done')
+      doneCallback({string: "done", chatID: chatID})
+      finishedCallback()
     }
   })
   child.catch(err => {
     console.error(err)
     throw err
   })
-
 }
 
+const getSettings = () => {
+  let settings = [
+    { type: 'title', text: 'Export a reading MP3' },
+    { type: 'description', text: 'Warning: This can take a while to export if doing the first time. Subsequently, it will export faster.' },
 
-
+    { id: 'renderTitlePage', label: 'Include Title Page', type: 'checkbox', default: true },
+    { id: 'readFast', label: 'Read Fast', type: 'checkbox', default: true },
+    { id: 'renderWholeScript', label: 'Render Whole Script', type: 'checkbox', default: true },
+    { id: 'renderSpecificScenes', label: 'Render Specific Scenes', type: 'range', default: '0-3' },
+  ]
+  return settings
+}
 
 // /Users/setpixel/git/scriptreader/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg -i output.mp3 -filter_complex "[0:a]avectorscope=s=480x480:zoom=1.5:rc=0:gc=200:bc=0:rf=0:gf=40:bf=0,format=yuv420p[v];  [v]pad=854:480:187:0[out]" -map "[out]" -map 0:a -b:v 700k -b:a 360k OUTPUT_VIDEO.mp4
 // /Users/setpixel/git/scriptreader/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg -i output.mp3 -filter_complex "[0:a]showspectrum=s=854x480:mode=combined:slide=scroll:saturation=0.2:scale=log,format=yuv420p[v]" -map "[v]" -map 0:a -b:v 700k -b:a 360k OUTPUT.mp4
 
 module.exports = {
-  generate
+  generate,
+  getSettings
 }

@@ -1,7 +1,4 @@
 // todo: still need to break after partial sentences
-// draw notes
-// how can I get the page number?
-
 
 const fs = require('fs')
 const path = require('path')
@@ -9,9 +6,20 @@ const pdfDocument = require('pdfkit')
 const moment = require('moment')
 const fountainParse = require('../fountain-parse')
 
+let progressCallback
+let doneCallback
+let finishedCallback
+let chatID
+
 const generate = async (options = {}) => {
+  progressCallback = options.progressCallback
+  doneCallback = options.doneCallback
+  finishedCallback = options.finishedCallback
+  chatID = options.chatID
+  progressCallback({string: "Rendering...", chatID: chatID})
   let scriptData = parseScript(options.inputPath)
   let data = await renderScript(scriptData, false)
+
   let fullScriptOptions = {
     pageCount: data.pageCount,
     scale: 1.0,
@@ -36,9 +44,7 @@ const generate = async (options = {}) => {
     showOutside: true,
     titlePage: true,
   }
-
-
-  await renderScript(scriptData, true, options.outputPath, notesScriptOptions)
+  setTimeout(()=>{renderScript(scriptData, true, options.outputPath, notesScriptOptions)},1)
 }
 
 const getPages = async (options = {}) => {
@@ -46,39 +52,32 @@ const getPages = async (options = {}) => {
   return await renderScript(scriptData, false)
 }
 
-
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
   let scriptData = fountainParse.parse(contents)
   return scriptData
 }
 
-const renderScript = (scriptData, render, outputFilePath, options) => {
+const renderScript = async (scriptData, render, outputFilePath, options) => {
   return new Promise((resolve, reject) => {
     if (!options) { options = {}}
-
     let documentSize = [8.5*72,11*72]
     let marginTop = 72
     let doc = new pdfDocument({size: documentSize, layout: 'portrait', margin: 0})
-
     doc.registerFont('thin',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Thin.ttf'))
     doc.registerFont('italic',   path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-RegularItalic.ttf'))
     doc.registerFont('regular',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Regular.ttf'))
     doc.registerFont('bold',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Bold.ttf'))
     doc.registerFont('extrabold',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Extrabold.ttf'))
     doc.registerFont('black',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Black.ttf'))
-
     doc.registerFont('courier-prime-sans',     path.join(__dirname, '..', '..', '..', 'fonts', 'courier-prime-sans', 'Courier Prime Sans.ttf'))
     doc.registerFont('courier-prime-sans-bold',     path.join(__dirname, '..', '..', '..', 'fonts', 'courier-prime-sans', 'Courier Prime Sans Bold.ttf'))
     doc.registerFont('courier-prime-sans-bold-italic',     path.join(__dirname, '..', '..', '..', 'fonts', 'courier-prime-sans', 'Courier Prime Sans Bold Italic.ttf'))
     doc.registerFont('courier-prime-sans-italic',     path.join(__dirname, '..', '..', '..', 'fonts', 'courier-prime-sans', 'Courier Prime Sans Italic.ttf'))
-
     let stream
-
     if (render) {
       stream = doc.pipe(fs.createWriteStream(outputFilePath))
     }
-
     let scale = options.scale || 1
     let xOffset = options.xOffset || 0
     let yOffset = options.yOffset || 0
@@ -90,17 +89,12 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
     let showLineNumbers = options.showLineNumbers || false
     let showOutside = options.showOutside || false
     let titlePage = options.titlePage || true
-
     pageNumber = 1
-
     let headerString = '%p.'
     let footerString = ''
-
     let currentSection = []
     let pageNotes = []
-
     let yCursor = (marginTop*scale)
-
     let currentParagraph = 0
     let currentScene = 0
 
@@ -128,21 +122,18 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
       }
     }
 
-
     let drawLineNumber = (yOverride, numberOverride) => {
       if (showLineNumbers) {
         let string
-
         if (numberOverride) {
-        doc.fillColor('black')
-        doc.font('bold')
-        string = String(numberOverride) + '.'
+          doc.fillColor('black')
+          doc.font('bold')
+          string = String(numberOverride) + '.'
         } else {
-        doc.fillColor('#aaa')
-        doc.font('regular')
-        string = String(currentParagraph+1) + ' '
+          doc.fillColor('#aaa')
+          doc.font('regular')
+          string = String(currentParagraph+1) + ' '
         }
-
         doc.fontSize(6)
         let y
         if (yOverride) {
@@ -156,22 +147,15 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
         currentParagraph++
       }
     }
-
+    
     let renderOutside = () => {
       if (showOutside && render) {
         doc.save()
-
         let currentTop = 35
-
         let left = ((8.5*72)-10)*scale + xOffset
         let width = (8.5*72)-left - 30
-
-
-
-
         for (let i = 0; i < currentSection.length; i++) {
           let tHeight
-
           currentSection[i] = currentSection[i].toUpperCase()
           if (i == 0) {
             doc.font('regular')
@@ -193,131 +177,84 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
           }
           currentTop += tHeight + 5
         }
-
         currentTop += 5
-
         doc.save()
         doc.roundedRect(left, currentTop, width, 4, 2).clip()
-
         let per = (pageNumber-1)/pageCount
         doc.fillOpacity(0.3)
         doc.rect(left, currentTop, width*per, 4)
         doc.fill()
-
-
         for (var i = 0; i < 4; i++) {
           doc.lineWidth(0.1)
           doc.moveTo(left+(width*(i/4)), currentTop)
           doc.lineTo(left+(width*(i/4)), currentTop+4)
           doc.stroke()
         }
-
-
-
-
         doc.restore()
-
-
         doc.lineWidth(0.1)
         doc.roundedRect(left, currentTop, width, 4, 2)
         doc.stroke()
-
         currentTop += 10
-
-
         doc.font('thin')
         doc.fontSize(5)
         tHeight = doc.heightOfString('xxx', {width: left-10, lineBreak: false, lineGap: 0, align: 'left'})
         doc.text(pageNumber + ' / ' + (pageCount+1) + '', left, currentTop, {width: width, lineBreak: false, lineGap: 0, align: 'left'})
         currentTop += tHeight
-
-
-
-
-
         currentTop += 30
-
         for (let i = 0; i < pageNotes.length; i++) {
-            doc.font('thin')
-            doc.fontSize(8)
-            tHeight = doc.heightOfString(pageNotes[i].text, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-            doc.text(pageNotes[i].text, left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-
-            doc.lineWidth(0.3)
-            doc.moveTo(0, pageNotes[i].yLoc)
-            doc.lineTo((8*72)*scale+xOffset-10, pageNotes[i].yLoc)
-            doc.lineTo(left-10, currentTop+3.5)
-            doc.lineTo(left-4, currentTop+3.5)
-            doc.dash(2, {space: 1})
-            doc.stroke()
-
-            doc.fillColor('black')
-            doc.rect(left-6, currentTop, 2, tHeight)
-            doc.fill()
-
-
-            currentTop += tHeight + 12
-
-
+          doc.font('thin')
+          doc.fontSize(8)
+          tHeight = doc.heightOfString(pageNotes[i].text, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+          doc.text(pageNotes[i].text, left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+          doc.lineWidth(0.3)
+          doc.moveTo(0, pageNotes[i].yLoc)
+          doc.lineTo((8*72)*scale+xOffset-10, pageNotes[i].yLoc)
+          doc.lineTo(left-10, currentTop+3.5)
+          doc.lineTo(left-4, currentTop+3.5)
+          doc.dash(2, {space: 1})
+          doc.stroke()
+          doc.fillColor('black')
+          doc.rect(left-6, currentTop, 2, tHeight)
+          doc.fill()
+          currentTop += tHeight + 12
         }
-
         if (pageNotes.length > 0) {
           doc.fillColor('#ccc')
           doc.polygon([(8.5*72)-70,0],[(8.5*72),0],[(8.5*72),70])
           doc.fill()
-
-
           doc.lineWidth(1)
           doc.moveTo((8.5*72)-70,0)
           doc.lineTo((8.5*72),70)
           doc.dash(4, {space: 2})
           doc.stroke()
-
-
           currentTop += 30
-
-
         }
-
-
         for (let i = 0; i < 3; i++) {
           doc.lineWidth(0.1)
           let height = width*(1/2.35)
-
           doc.rect(left, currentTop, width, height)
           doc.dash(1, {space: 0.5})
           doc.stroke()
           currentTop += height + 30
-
         }
-         doc.undash()
-
-
-
+        doc.undash()
         doc.fillColor('black')
         doc.font('regular')
         doc.fontSize(8)
         doc.text(pageNumber + ' / ' + (pageCount+1) + '', 0, documentSize[1]-40, {width: (8.5*72-30), lineBreak: false, lineGap: 0, align: 'right'})
-
-          for (let i = 0; i < scriptData.title.length; i++) {
-            if (scriptData.title[i].type == 'title') {
-              doc.fillColor('black')
-              doc.font('extrabold')
-              doc.fontSize(8)
-              doc.text(scriptData.title[i].plainText, 0, documentSize[1]-40, {width: (8.5*72-80), lineBreak: false, lineGap: 0, align: 'right'})
-            }
+        for (let i = 0; i < scriptData.title.length; i++) {
+          if (scriptData.title[i].type == 'title') {
+            doc.fillColor('black')
+            doc.font('extrabold')
+            doc.fontSize(8)
+            doc.text(scriptData.title[i].plainText, 0, documentSize[1]-40, {width: (8.5*72-80), lineBreak: false, lineGap: 0, align: 'right'})
           }
-
-
+        }
         doc.restore()
         doc.fontSize(12*scale)
         doc.fillColor('black')
-
-
       }
     }
-
-
 
     let addPage = (dontReallyAddAPage) => {
       renderHeader()
@@ -333,7 +270,6 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
       }
       return yCursor
     }
-
 
     let renderDialogueLines = (scriptData, currentScriptNode, yCursor, documentSize, scale, untilNode, untilSentence, characterText) => {
       let done = false
@@ -384,8 +320,6 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
               for (var z = 0; z < (untilSentence+1); z++) {
                 sentenceText = sentences.slice(0,z+1).join(' ')
               }
-              // console.log(untilSentence)
-              // console.log( "SPLIT: ", sentenceText)
             } else {
               for (var z = 0; z < sentences.length; z++) {
                 sentenceText = sentences.slice(0,z+1).join(' ')
@@ -404,7 +338,6 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
         }
         if (token.formattedText) {
           if (j == (untilNode-1)) {
-           // console.log(sentenceText)
             if (render) {
               drawLineNumber(yCursor)
               renderFormattedText(sentenceText, left, yCursor, width, align, fontStyle)
@@ -459,9 +392,6 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
             lineAfter = false
             dialogueHeight += doc.heightOfString(token.plainText, {width: width, lineBreak: true, lineGap: 0, align: align})
             if ((yCursor + dialogueHeight + (doc.heightOfString("(MORE)", {width: width, lineBreak: true, lineGap: 0, align: align}))*2) > ((documentSize[1]-55)*scale)) {
-              // console.log("omg, broke on parent")
-              // console.log(scriptData.script[j-1].plainText)
-              // console.log({y: yCursor, dialogueHeight: dialogueHeight, max: ((documentSize[1]-55)*scale)})
               if (dialogueCount == 0) {
                 // couldn't draw even the first sentence. clean break.
                 splitNode = j+1
@@ -469,7 +399,6 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
                 done = true
                 i = j
               } else {
-                // console.log("DOESNT FIT: SPLIT BREAK")
                 // cool - we can draw at least one sentence
                 renderDialogueLines(scriptData, currentScriptNode, yCursor, documentSize, scale, j)
                 split = true
@@ -503,9 +432,6 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
                 if (dialogueCount == 1 && z == 0) {
                   // couldn't draw even the first sentence. clean break.
                 } else {
-                  // console.log(sentenceText)
-                  // console.log(z)
-                  // console.log("DOESNT FIT: SPLIT BREAK")
                   // cool - we can draw at least one sentence
                   renderDialogueLines(scriptData, currentScriptNode, yCursor, documentSize, scale, j+1, z)
                   split = true
@@ -526,7 +452,6 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
                 // try again
                 tHeight = 0
                 yCursor = addPage()
-
                 z = 999
               }
             }
@@ -628,12 +553,11 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
     }
 
     if (titlePage && render) {
+      progressCallback({string: "Rendering Title Page.", chatID: chatID})
       let yCursor = 11*72/2-72
       let tHeight
       let breakYet = false
       for (let i = 0; i < scriptData.title.length; i++) {
-        console.log(scriptData.title[i])
-
         switch (scriptData.title[i].type) {
           case 'title':
             doc.fillColor('black')
@@ -657,16 +581,12 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
               yCursor += 80
               breakYet = true
             }
-
             let string
             if (scriptData.title[i].type =='draft_date') {
               string = 'DRAFT DATE: ' + scriptData.title[i].plainText
             } else {
               string = 'REVISION: ' + scriptData.title[i].plainText
             }
-
-
-
             doc.fillColor('black')
             doc.font('regular')
             doc.fontSize(8)
@@ -674,16 +594,14 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
             doc.text(string, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
             yCursor += tHeight + 10
             break
-
         }
-
-
       }
       doc.addPage()
     }
 
-
-
+    if (render) {
+      progressCallback({string: 'Writing ' + pageCount + ' pages.', chatID: chatID})
+    }
 
     for (var i = 0; i < scriptData.script.length; i++) {
       let token = scriptData.script[i]
@@ -694,8 +612,6 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
       let align = 'left'
       let lineBefore = false
       let lineAfter = true
-
-
       doc.fontSize(12*scale)
       switch (token.type) {
         case 'centered':
@@ -747,44 +663,32 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
             case 'footer':
               footerString = prop[1]
               break
-
           }
           continue
         default:
-          // console.log(token.type, token.text)
-          // console.log(token)
           continue
       }
       if (lineBefore) {
         yCursor += height + (12*scale)
       }
       height = doc.heightOfString(token.plainText, {width: width, lineBreak: true, lineGap: 0, align: align})
-        
       if (token.type == 'scene_heading') {
         if ((yCursor + height + (12*scale*5)) > ((documentSize[1]-55)*scale)) {
-          console.log(token.formattedText)
-          console.log("OVERRUN")
+          // overrun
           yCursor = addPage()
         }      
       } else {
         if ((yCursor + height) > ((documentSize[1]-55)*scale)) {
           yCursor = addPage()
-        }      
+        }
       }
-
-
       if (token.formattedText) {
         if (render) {
-
           if (token.type == 'scene_heading') {
-          drawLineNumber(null, currentScene)
-
+            drawLineNumber(null, currentScene)
           } else {
-                    drawLineNumber()
-
+            drawLineNumber()
           }
-
-
           renderFormattedText(token.formattedText, left, yCursor, width, align, fontStyle)
         }
       }
@@ -795,10 +699,11 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
       }
     }
     addPage(true)
-
     doc.end()
     if (render) {
       stream.on('finish', () => {
+        doneCallback({string: "done!", chatID: chatID})
+        finishedCallback()
         resolve({ pageCount: pageNumber })
       })
     } else {
@@ -807,7 +712,38 @@ const renderScript = (scriptData, render, outputFilePath, options) => {
   })
 }
 
+const getSettings = () => {
+
+    // pageCount: data.pageCount,
+    // scale: 0.8,
+    // xOffset: -22,
+    // yOffset: 60,
+    // scriptHeader: false,
+    // scriptFooter: false,
+    // showLineNumbers: true,
+    // showNotes: true,
+    // showOutside: true,
+    // titlePage: true,
+
+
+
+  let settings = [
+    { type: 'title', text: 'Export a Script PDF' },
+    { type: 'description', text: 'Export your script as an industry standard script or with margins to include notes, storyboards, and space to write.' },
+
+    { id: 'scriptPageSize', label: 'Page Size', type: 'dropdown', values: [{text: 'Letter', value: 'letter'}, {text: 'A4', value: 'a4'}], default: 1 },
+    { id: 'scriptFont', label: 'Font', type: 'dropdown', values: [{text: 'Courier Prime', value: 'prime'}, {text: 'Courier Prime Sans', value: 'sans'}], default: 1 },
+    { id: 'scriptType', label: 'Type', type: 'dropdown', values: [{text: 'Normal', value: 'normal'}, {text: 'Margin with thumbnails', value: 'thumbnails'}, {text: 'Margin with blank', value: 'blank'}], default: 1 },
+    { id: 'scriptIncludeTitlePage', label: 'Include Title Page', type: 'checkbox', default: true },
+    { id: 'scriptShowLineNumbers', label: 'Show line numbers', type: 'checkbox', default: true },
+    { id: 'scriptIncludeNotes', label: 'Show Notes', type: 'checkbox', default: true },
+    { id: 'scriptSpecificScenes', label: 'Only render specific scenes (5 or 3-12)', type: 'range', default: true },
+  ]
+  return settings
+}
+
 module.exports = {
   generate,
-  getPages
+  getPages,
+  getSettings
 }

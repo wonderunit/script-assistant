@@ -95,7 +95,7 @@ var init = function(chatInterfaceParam) {
   chatInterface = chatInterfaceParam
 
 
-  greeting()
+  //greeting()
 
 }
 

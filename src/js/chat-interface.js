@@ -30,7 +30,6 @@ const userInput = (string) => {
 }
 
 const agentOutput = (string, id) => {
-  agent.clear()
   if (id) {
     let item = document.querySelector('#' + id) 
     if (item) {
@@ -41,12 +40,14 @@ const agentOutput = (string, id) => {
       content.className = "blurb"
       content.innerHTML = string
       document.querySelector('#chat').appendChild(content)
+      //agent.clear()
     }
   } else {
     let content = document.createElement("div")
     content.className = "blurb"
     content.innerHTML = string
     document.querySelector('#chat').appendChild(content)
+    //agent.clear()
   }
 
   scrollToBottom()

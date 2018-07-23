@@ -3,51 +3,40 @@
   <head>
     <link rel="stylesheet" href="./css/fonts.css">
     <link rel="stylesheet" href="./css/main-window.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.1.1/css/all.css" integrity="sha384-O8whS3fhG2OnA5Kas0Y9l3cfpmYjapjI0E4theH4iuMD+pLhbf6JI0jIMfYcK3yZ" crossorigin="anonymous">
   </head>
   <body>
-
     <div id="main">
-
       <div id="content">
-
-        <div id="title"></div><button id="editScript" title="Open Script in Editor"></button><button id="revealScript" title="Show Script in Folder"></button>
+        <div id="title"></div><button id="editScript" title="Open Script in Editor"><i class="fas fa-keyboard"></i></button><button id="revealScript" title="Show Script in Folder"><i class="fas fa-folder"></i></button>
         <div id="stats"></div>
-
-
         <div id="timeline">
+          <div class="scene" style="flex: 10; background: red;"></div>
           <div style="position: relative;"><div class="section">Act 1</div></div>
-          <div style="flex: 10; background: red;"></div>
-          <div style="flex: 5; background: blue;"></div>
-          <div style="flex: 10; background: red;"></div>
-          <div style="flex: 5; background: blue;"></div>
-          <div style="flex: 10; background: red;"></div>
+          <div class="scene" style="flex: 10; background: red;"></div>
+          <div class="scene" style="flex: 5; background: blue;"></div>
+          <div class="scene" style="flex: 10; background: red;"></div>
+          <div class="scene" style="flex: 5; background: blue;"></div>
+          <div class="scene" style="flex: 10; background: red;"></div>
           <div style="position: relative;"><div class="section">Act 1</div></div>
-          <div style="flex: 5; background: blue;"></div>
-          <div style="flex: 10; background: red;"></div>
-          <div style="flex: 5; background: blue;"></div>
-          <div style="flex: 10; background: red;"></div>
-          <div style="flex: 5; background: blue;"></div>
-          <div style="flex: 10; background: red;"></div>
+          <div class="scene" style="flex: 5; background: blue;"></div>
+          <div class="scene" style="flex: 10; background: red;"></div>
+          <div class="scene" style="flex: 5; background: blue;"></div>
+          <div class="scene" style="flex: 10; background: red;"></div>
+          <div class="scene" style="flex: 5; background: blue;"></div>
+          <div class="scene" style="flex: 10; background: red;"></div>
           <div style="position: relative;"><div class="section">Act 1</div></div>
-          <div style="flex: 5; background: blue;"></div>
-          <div style="flex: 10; background: red;"></div>
-          <div style="flex: 5; background: blue;"></div>
+          <div class="scene" style="flex: 5; background: blue;"></div>
+          <div class="scene" style="flex: 10; background: red;"></div>
+          <div class="scene" style="flex: 5; background: blue;"></div>
         </div>
-
-        <div id="tooltipHTML">I am a <h1>Tooltip</h1><button id="sup" title="sup">Export Scene List</button></div>
-        <div id="tooltipHTML2">I am a <h1>Tooltip sdhjkfkajs dfhakjsdhf</h1><button id="sup" title="sup">Export Scene List</button></div>
-
-
       </div>
-        
       <div id="outputs">
-
-        <button id="generateScriptPdf" title="Export a script PDF!!!">Export Script PDF</button>
-        <button id="generateOutlinePdf">Export Outline PDF</button>
-        <button id="generateReader">Export Reader MP3</button>
-        <button id="generateSceneList">Export Scene List</button>
+        <button id="generateScriptPdf"><i class="fas fa-file"></i> Script</button>
+        <button id="generateOutlinePdf"><i class="fas fa-grip-horizontal"></i>Outline</button>
+        <button id="generateReader"><i class="fas fa-play"></i>Table Read</button>
+        <button id="generateSceneList"><i class="fas fa-th-list"></i> Scene List</button>
       </div>
-
     </div>
     <div id="right">
       <div id="chat">
@@ -56,12 +45,9 @@
       <div id="chat-input">
         <input type="text" name="fname" placeholder="type here...">
       </div>
-
     </div>
-
-
-  <script>
-    require('./js/window/main-window')
-  </script>
+    <script>
+      require('./js/window/main-window')
+    </script>
   </body>
 </html>

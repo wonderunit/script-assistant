@@ -27,7 +27,13 @@ body {
   margin-bottom: 20px;
   display: inline-block;
   color: #222;
+  margin-right: 5px;
 }
+
+input, select, label {
+  -webkit-app-region: no-drag;
+}
+
 
 button {
   -webkit-app-region: no-drag;
@@ -42,15 +48,19 @@ button {
   white-space: nowrap;
   text-decoration: none;
   padding: 20px 20px;
-  margin: 0.25rem;
+  margin-right: 10px;
+}
+
+button:last-child {
+  margin-right: 0;
 }
 
 button:hover {
-  background: red;
+  background: #249aea;
 }
 
 button:active {
-  background: green;
+  background: #1E88E5;
 }
 
 button:disabled {
@@ -145,7 +155,16 @@ button:disabled {
   height: 100px;
   border-radius: 5px;
   /*overflow: hidden;*/
-  margin-top: 20px;
+  margin-top: 50px;
+}
+
+#timeline .scene:first-of-type {
+  border-radius: 8px 0 0 8px;
+  background: black;
+}
+
+#timeline .scene:last-child {
+  border-radius: 8px 0 0 8px;
 }
 
 #timeline .section {
@@ -160,4 +179,112 @@ button:disabled {
   border-radius: 10px;
   padding: 30px;
   text-align: left;
+  max-width: 300px;
+}
+
+.settings-content {
+  overflow: scroll;
+  max-height: 520px;
+  position: relative;
+}
+
+.settings-content .row {
+  margin-bottom: 5px;
+}
+
+.tippy-tooltip .title {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1em;
+  margin-bottom: 10px;
+}
+
+.tippy-tooltip .description {
+  margin-bottom: 10px;
+}
+
+input[type=checkbox] {
+  display: none;
+}
+
+input[type="checkbox"] + label span {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  margin: -2px 10px 0 0;
+  vertical-align: middle;
+  background: #444;
+  border-radius: 3px;
+  cursor: arrow;
+}
+
+input[type=checkbox]:checked + label:before {
+  content:'\2716';
+  padding-left: 5px;
+  padding-top: 4px;
+  text-shadow: 0px 1px 1px rgba(0, 0, 0, .2);
+  font-size: 15px;
+  text-align: center;
+  line-height: 1;
+  position: absolute;
+  color: white;
+}
+
+select {
+  color: #fff;
+  background-color: #444;
+  outline: 0;
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  font-size: 16px;
+  border: 0;
+  height: 34px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: #444;
+  margin-bottom: 10px;
+}
+
+.tippy-tooltip input[type="text"] {
+  color: #fff;
+  background-color: #444;
+  outline: 0;
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  font-size: 16px;
+  border: 0;
+  height: 34px;
+  margin: 0px;
+  box-sizing: border-box;
+  border-radius: 5px;
+    -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+}
+
+#outputs i {
+  color: rgba(255,255,255,0.3);
+  margin-right: 10px;
+}
+
+#content button {
+  color: #ccc;
+  vertical-align: text-bottom;
+  position: relative;
+  top: -5px;
+  padding: 10px 10px;
+  background: rgba(0,0,0,0.2);
+  font-size: 12px;
+  width: 34px;
+  border-radius: 6px;
+  margin-right: 0;
+  margin-left: 10px;
+}
+
+#content button:hover {
+  background: rgba(0,0,0,0.4);
 }

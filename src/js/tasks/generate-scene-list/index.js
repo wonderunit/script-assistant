@@ -1,8 +1,3 @@
-// todo: still need to break after partial sentences
-// draw notes
-// how can I get the page number?
-
-
 const fs = require('fs')
 const path = require('path')
 const fountainParse = require('../fountain-parse')
@@ -44,12 +39,18 @@ const titleCase = (str) =>  {
 
 let progressCallback
 let doneCallback
+let finishedCallback
+let chatID
 
 const generate = async (options = {}) => {
   let scriptData = parseScript(options.inputPath)
 
   progressCallback = options.progressCallback
   doneCallback = options.doneCallback
+  finishedCallback = options.finishedCallback
+  chatID = options.chatID
+
+  progressCallback({string: "started", chatID: chatID})
 
   // page count
   let pages = await generateScriptPdf.getPages(options)
@@ -59,10 +60,9 @@ const generate = async (options = {}) => {
 
   let duration = 0
   let currentAct = ''
+  let currentSection = ''
   let noteCount = 0 
   let currentScene
-
-  progressCallback("started")
 
   for (var i = 0; i < scriptData.script.length; i++) {
     if (scriptData.script[i].plainText) {
@@ -76,19 +76,14 @@ const generate = async (options = {}) => {
           duration += 1000
           break
         case 'scene_heading':
-
           if (currentScene) {
             currentScene.noteCount = noteCount
             currentScene.duration = duration
             scenes.push(currentScene)
           }
-
           duration = 2000
           noteCount = 0 
-           
-          currentScene = {currentAct: currentAct, slugline: scriptData.script[i].plainText}
-
-
+          currentScene = {currentAct: currentAct, currentSection: currentSection, slugline: scriptData.script[i].plainText}
           break
         case 'character':
           break
@@ -105,13 +100,13 @@ const generate = async (options = {}) => {
           noteCount++
           break
         case 'section':
-          //console.log(scriptData.script[i])
           if (scriptData.script[i].depth == 1) {
             currentAct = scriptData.script[i].plainText
+          } else {
+            currentSection = scriptData.script[i].plainText
           }
           break
         default:
-          //console.log(scriptData.script[i].type)
       }
     }
   }
@@ -129,6 +124,9 @@ const generate = async (options = {}) => {
 
   if (settings.includeAct) {
     csvLine.push('ACT')
+  }
+  if (settings.includeSection) {
+    csvLine.push('Section')
   }
   csvLine.push('Scene')
   if (settings.includeNotes) {
@@ -152,7 +150,10 @@ const generate = async (options = {}) => {
   for (var i = 0; i < scenes.length; i++) {
     csvLine = []
     if (settings.includeAct) {
-      csvLine.push(scenes[i].currentAct)
+      csvLine.push(scenes[i].currentAct.split(',').join('-'))
+    }
+    if (settings.includeSection) {
+      csvLine.push(scenes[i].currentSection.split(',').join('-'))
     }
     csvLine.push(scenes[i].slugline.split(',').join('-'))
     if (settings.includeNotes) {
@@ -177,18 +178,18 @@ const generate = async (options = {}) => {
     csvText += csvLine.join(',') + `\n`
   }
 
-  progressCallback("writing")
-
+  progressCallback({string: "writing", chatID: chatID})
 
   fs.writeFile(options.outputPath, csvText, function(err) {
     if(err) {
-      return console.log(err)
+      doneCallback({string: "error", chatID: chatID})
+      finishedCallback()
+      return 
     }
-    doneCallback('done!')
+    doneCallback({string: "done!", chatID: chatID})
+    finishedCallback()
   }) 
 }
-
-
 
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
@@ -198,17 +199,19 @@ const parseScript = (filepath) => {
 
 const getSettings = () => {
   let settings = [
+    { type: 'title', text: 'Export scene list CSV' },
+    { type: 'description', text: 'This is useful for importing to Google spreadsheets for TODO lists or time management.' },
+
     { id: 'includeAct', label: 'Include Act', type: 'checkbox', default: true },
+    { id: 'includeSection', label: 'Include Section', type: 'checkbox', default: true },
     { id: 'includeNotes', label: 'Include Notes', type: 'checkbox', default: true },
     { id: 'includeSeconds', label: 'Include Seconds', type: 'checkbox', default: true },
-    { id: 'includeTodo', label: 'Include TODO', type: 'checkbox', default: true },
-    { id: 'includeRough', label: 'Include ROUGH', type: 'checkbox', default: true },
-    { id: 'includeComplete', label: 'Include COMPLETE', type: 'checkbox', default: true },
+    { id: 'includeTodo', label: 'Include TODO', type: 'checkbox', default: false },
+    { id: 'includeRough', label: 'Include ROUGH', type: 'checkbox', default: false },
+    { id: 'includeComplete', label: 'Include COMPLETE', type: 'checkbox', default: false },
   ]
-
   return settings
 }
-
 
 module.exports = {
   generate,

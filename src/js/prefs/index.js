@@ -32,7 +32,6 @@ function objToStrMap (obj) {
 
 const init = f => {
   prefFile = f
-  console.log('Loading prefs from', prefFile)
   load()
 }
 

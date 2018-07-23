@@ -1,12 +1,7 @@
-// todo: still need to break after partial sentences
-// draw notes
-// how can I get the page number?
-
-
 const fs = require('fs')
 const path = require('path')
-const fountainParse = require('../fountain-parse')
 
+const fountainParse = require('../fountain-parse')
 const generateScriptPdf = require('../generate-script-pdf')
 
 const getWordCount = (text) => {
@@ -31,7 +26,6 @@ const values = (obj) => {
   for (var key in obj) tuples.push([key, obj[key]])
   return tuples
 }
-
 
 const titleCase = (str) =>  {
   str = str.toLowerCase().split(' ')
@@ -150,36 +144,17 @@ const parseScript = (filepath) => {
 }
 
 const diff = (stats1, stats2) => {
+  let diffStats = {}
   if (stats1 && stats2) {
+    let changeMessage = []
+
     if (stats1.title !== stats2.title) {
+      changeMessage.push('Changed title to <strong>' + stats1.title + '</strong> from ' + stats2.title + '.')
       console.log('title', stats1.title, stats2.title)
-    }
-    if (stats1.pageCount !== stats2.pageCount) {
-      console.log('pageCount', stats1.pageCount, stats2.pageCount)
-    }
-    if (stats1.wordCount !== stats2.wordCount) {
-      console.log('wordCount', stats1.wordCount, stats2.wordCount)
-    }
-    if (stats1.sceneCount !== stats2.sceneCount) {
-      console.log('sceneCount', stats1.sceneCount, stats2.sceneCount)
-    }
-    if (stats1.noteCount !== stats2.noteCount) {
-      console.log('noteCount', stats1.noteCount, stats2.noteCount)
-    }
-    if (stats1.duration !== stats2.duration) {
-      console.log('duration', stats1.duration, stats2.duration)
-    }
-
-    if (stats1.characters.length !== stats2.characters.length) {
-      console.log('characters', stats1.characters.length, stats2.characters.length)
-    }
-
-    if (stats1.locations.length !== stats2.locations.length) {
-      console.log('locations', stats1.locations.length, stats2.locations.length)
     }
 
     let currentScene = 0
-    let sceneName
+    let sceneName = ''
 
     for (var i = 0; i < stats1.scriptData.script.length; i++) {
       if (stats1.scriptData.script[i].text && stats2.scriptData.script[i].text) {
@@ -187,42 +162,121 @@ const diff = (stats1, stats2) => {
           currentScene++
           sceneName = stats1.scriptData.script[i].plainText
         }
-
         if (stats1.scriptData.script[i].text !== stats2.scriptData.script[i].text) {
+          changeMessage.push('Edited Scene <strong>' + currentScene + ' - ' + sceneName + '</strong> around, "' + stats1.scriptData.script[i].plainText.substring(0,50) + '..."')
           console.log('script', currentScene, sceneName, stats1.scriptData.script[i],  stats2.scriptData.script[i])
           break
         }
       }
+    }
+
+    if (stats1.sceneCount !== stats2.sceneCount) {
+      console.log('sceneCount', stats1.sceneCount, stats2.sceneCount)
+
+      let diff = stats1.sceneCount - stats2.sceneCount
+      let verb
+      if (diff > 0) {
+        verb = 'Added'
+      } else {
+        verb = 'Removed'
+      }
+      changeMessage.push(verb + ' ' + Math.abs(diff) + ' scenes.')
 
     }
+
+    if (stats1.locations.length !== stats2.locations.length) {
+      console.log('locations', stats1.locations.length, stats2.locations.length)
+
+      let diff = stats1.locations.length - stats2.locations.length
+      let verb
+      if (diff > 0) {
+        verb = 'Added'
+      } else {
+        verb = 'Removed'
+      }
+      changeMessage.push(verb + ' ' + Math.abs(diff) + ' locations.')
+
+
+    }
+
+    if (stats1.characters.length !== stats2.characters.length) {
+      console.log('characters', stats1.characters.length, stats2.characters.length)
+
+      let diff = stats1.characters.length - stats2.characters.length
+      let verb
+      if (diff > 0) {
+        verb = 'Added'
+      } else {
+        verb = 'Removed'
+      }
+      changeMessage.push(verb + ' ' + Math.abs(diff) + ' characters.')
+
+
+    }
+
+
+
+
+    if (stats1.wordCount !== stats2.wordCount) {
+      console.log('wordCount', stats1.wordCount, stats2.wordCount)
+
+      let diff = stats1.wordCount - stats2.wordCount
+      let verb
+      if (diff > 0) {
+        verb = 'Added'
+      } else {
+        verb = 'Removed'
+      }
+      changeMessage.push(verb + ' ' + Math.abs(diff) + ' words.')
+
+    }
+
+
+    if (Math.round(stats1.duration/1000/60) !== Math.round(stats2.duration/1000/60)) {
+      console.log('duration', stats1.duration, stats2.duration)
+      
+      let diff = stats1.duration - stats2.duration
+      let verb
+      if (diff > 0) {
+        verb = 'Added'
+      } else {
+        verb = 'Removed'
+      }
+      changeMessage.push(verb + ' ' + Math.round(Math.abs(diff)/1000/60) + ' minutes.')
+    }
+
+    if (stats1.pageCount !== stats2.pageCount) {
+      console.log('pageCount', stats1.pageCount, stats2.pageCount)
+
+      let diff = stats1.pageCount - stats2.pageCount
+      let verb
+      if (diff > 0) {
+        verb = 'Added'
+      } else {
+        verb = 'Removed'
+      }
+      changeMessage.push(verb + ' ' + Math.abs(diff) + ' pages.')
+    }
+
+    if (stats1.noteCount !== stats2.noteCount) {
+      console.log('noteCount', stats1.noteCount, stats2.noteCount)
+
+      let diff = stats1.noteCount - stats2.noteCount
+      let verb
+      if (diff > 0) {
+        verb = 'Added'
+      } else {
+        verb = 'Removed'
+      }
+      changeMessage.push(verb + ' ' + Math.abs(diff) + ' notes.')
+    }
+
+
+    diffStats.changeMessage = changeMessage.join(' ')
 
   }
-}
 
-const isEquivalent = (a, b) => {
-    // Create arrays of property names
-    var aProps = Object.getOwnPropertyNames(a);
-    var bProps = Object.getOwnPropertyNames(b);
-
-    // If number of properties is different,
-    // objects are not equivalent
-    if (aProps.length != bProps.length) {
-        return false;
-    }
-
-    for (var i = 0; i < aProps.length; i++) {
-        var propName = aProps[i];
-
-        // If values of same property are not equal,
-        // objects are not equivalent
-        if (a[propName] !== b[propName]) {
-            return false;
-        }
-    }
-
-    // If we made it this far, objects
-    // are considered equivalent
-    return true;
+  return diffStats
 }
 
 module.exports = {
