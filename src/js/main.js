@@ -30,6 +30,7 @@ function createWindow () {
       webSecurity: false,
       allowRunningInsecureContent: true,
       experimentalFeatures: true,
+      backgroundThrottling: false,
     }})
 
   //mainWindow.ELECTRON_DISABLE_SECURITY_WARNINGS = true

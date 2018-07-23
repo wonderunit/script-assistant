@@ -85,7 +85,7 @@ const createButton = (domName, generator, prefs, options) => {
     size: 'large',
     duration: [100, 200],
     animation: 'shift-toward',
-    multiple: true,
+    multiple: false,
     html: settingsTooltip
   })
 

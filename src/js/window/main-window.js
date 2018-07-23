@@ -5,6 +5,7 @@ const path = require('path')
 
 const moment = require('moment')
 const tippy = require('tippy.js')
+const electronUtil = require('electron-util')
 
 const generateStats = require('../tasks/generate-stats')
 const generateScriptPdf = require('../tasks/generate-script-pdf')
@@ -156,6 +157,9 @@ const onLinkedFileChange = async (eventType, filepath, stats) => {
 }
 
 const init = () => {
+
+  electronUtil.disableZoom()
+
   chatInterface.init(agent)
   agent.init(chatInterface)
 
@@ -175,6 +179,25 @@ const init = () => {
   watcher.on('all', onLinkedFileChange)
 
   watcher.add(scriptPath)
+
+  tippy("#editScript, #revealScript", {
+    //theme: 'settings',
+    delay: [200, 200],
+    arrow: true,
+    arrowType: 'large',
+    interactive: false,
+    interactiveBorder: 20,
+    size: 'large',
+    duration: [200, 200],
+    animation: 'shift-toward',
+    multiple: false,
+  })
+
+  document.querySelector('#editScript').addEventListener('click', () => {
+    if (scriptPath.length) {
+      shell.openItem(scriptPath)
+    }
+  })
 
   document.querySelector('#revealScript').addEventListener('click', () => {
     if (scriptPath.length) {

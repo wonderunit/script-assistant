@@ -16,7 +16,7 @@ const execa = require('execa')
 let child
 
 if (!fs.existsSync(path.join(app.getPath('userData'), 'tts.json'))) {
-  console.log("cant find stuff")
+  console.log("cant find tts key")
   shell.showItemInFolder(path.join(app.getPath('userData')))
 }
 
@@ -144,7 +144,6 @@ const renderTTS = (scriptAtom) => {
         resolve({filename: filename, duration: duration, type: scriptAtom.type, plainText: scriptAtom.plainText})
       })
     } else {
-      console.log("REQUESTING")
       client.synthesizeSpeech(request, (err, response) => {
         if (err) {
           reject(err)
@@ -277,10 +276,7 @@ const renderScene = async (scriptArray, progressString) => {
 
       args = args.concat(['-map', '[mixout]a', '-ac', '2', '-b:a', '192k', '-ar', '44100', '-y', '-t', ((currentOffset/1000)+1), '"' + filename + '"'])
       
-      console.log({ ffmpegPath, args })
-
       let totalDurationInSeconds = currentOffset / 1000
-      console.log({ totalDurationInSeconds, currentOffset })
 
       child = execa('"' + ffmpegPath + '"', args, {shell: true})
       const timeRegex = /time=(\d\d:\d\d:\d\d.\d\d)/gm
@@ -304,9 +300,6 @@ const renderScene = async (scriptArray, progressString) => {
         if (code !== 0) {
           reject(Error(`Could not use ffmpeg. Failed with error ${code}`))
         } else {
-
-          console.log('done with scene')
-
           // when done:
           let duration = await mp3Duration(filename)
           resolve({ filename: filename, duration })
@@ -317,10 +310,6 @@ const renderScene = async (scriptArray, progressString) => {
         console.error(err)
         reject(err)
       })
-
-
-
-      // console.log(arrayOfResults)
 
     }
   })
@@ -363,10 +352,10 @@ const generate = async (options = {}) => {
   }
   let renderSceneTasks = []
   let fromScene
-  fromScene = 0
+  fromScene = 5
   //fromScene = 80
   let toScene
-  toScene = 7
+  toScene = 6
   //toScene = scriptArray.length
   let arrayOfResults = []
   let totalDuration = 0
@@ -377,7 +366,6 @@ const generate = async (options = {}) => {
   }
 
   let stats = await generateStats.generate(options)
-  console.log(stats.duration)
 
   // render title page
   if (scriptData.title && fromScene == 0) {
@@ -428,7 +416,6 @@ const generate = async (options = {}) => {
   mixstring += 'concat=' + (arrayOfResults.length) +  ':v=0:a=1[mixout]'
   args.push("'" + mixstring + "'")
   args = args.concat(['-map', '[mixout]', '-ac', '2', '-b:a', '192k', '-ar', '44100', '-y', options.outputPath ])
-  // console.log({ ffmpegPath, args })
   child = execa('"' + ffmpegPath + '"', args, {shell: true})
   const timeRegex = /time=(\d\d:\d\d:\d\d.\d\d)/gm
   child.stderr.on('data', data => {
@@ -448,7 +435,6 @@ const generate = async (options = {}) => {
     if (code !== 0) {
       throw new Error(`Could not use ffmpeg. Failed with error ${code}`)
     } else {
-      console.log('done')
       doneCallback({string: "done", chatID: chatID})
       finishedCallback()
     }
