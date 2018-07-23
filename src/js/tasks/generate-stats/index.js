@@ -50,8 +50,6 @@ const generate = async (options = {}) => {
 
   // page count
   let pages = await generateScriptPdf.getPages(options)
-  pages = pages.pageCount
-
 
   let wordCount = 0
   let sceneCount = 0
@@ -124,7 +122,7 @@ const generate = async (options = {}) => {
 
   return {
     title: title,
-    pageCount: pages,
+    pageCount: pages.pageCount,
     wordCount: wordCount,
     sceneCount: sceneCount, 
     noteCount: noteCount,
@@ -132,7 +130,8 @@ const generate = async (options = {}) => {
     characters: sortedValues(characters), 
     locations: sortedValues(locations),
     modifiedAt: filestats.mtime,
-    scriptData: scriptData
+    scriptData: scriptData,
+    sceneList: pages.sceneList
   }
 
 }

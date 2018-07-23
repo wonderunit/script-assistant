@@ -94,8 +94,6 @@ const generate = async (options = {}) => {
           duration += getDurationOfWords(scriptData.script[i].plainText, 300)+1000
           break
         case 'inline_note':
-          noteCount++
-          break
         case 'note':
           noteCount++
           break

@@ -56,8 +56,95 @@ const loadStats = async (filepath) => {
   statsHTML.push(chars.join(', '))
   document.querySelector('#title').innerHTML = stats.title
   document.querySelector('#stats').innerHTML = statsHTML.join('')
+
+  renderTimeline(stats.sceneList)
+
   return stats
 }
+
+const renderTimeline = (sceneList) => {
+  console.log(sceneList)
+  
+  let timelineDom = document.querySelector('#timeline')
+
+  let timelineHTML = []
+
+
+  let colors = [
+    '#5a5a5a', 
+    '#00bbe3', 
+    '#167fb2', 
+    '#ffeb97', 
+    '#fbbbff'
+  ]
+
+
+  let currentAct = ''
+
+  timelineHTML.push('<div id="label">')
+
+  for (var i = 0; i < sceneList.length; i++) {
+    if (currentAct !== sceneList[i].currentAct) {
+      timelineHTML.push('<div style="position: relative;"><div class="section">' + sceneList[i].currentAct + '</div></div>')
+      currentAct = sceneList[i].currentAct
+    }
+    timelineHTML.push('<div style="flex: ' + sceneList[i].duration + ';"></div>')
+  }
+
+  timelineHTML.push('</div><div id="bar">')
+
+
+
+  for (var i = 0; i < sceneList.length; i++) {
+    timelineHTML.push('<div id="scene-' + i + '" style="flex: ' + sceneList[i].duration + '; background: ' + colors[i % 5] + ';"></div>')
+  }
+
+  timelineHTML.push('</div>')
+
+  timelineDom.innerHTML = timelineHTML.join('')
+
+  for (var i = 0; i < sceneList.length; i++) {
+
+    let settingsTooltip = document.createElement("div")
+    settingsTooltip.className = "settings-content"
+    settingsHTML = []
+
+    settingsHTML.push(sceneList[i].currentAct + ' // ')
+    settingsHTML.push(sceneList[i].currentSection + '<br/>')
+    settingsHTML.push(sceneList[i].sceneNumber + '. ')
+    settingsHTML.push(sceneList[i].slugline + '<br/>')
+    settingsHTML.push('Page: ' + sceneList[i].currentPage + '<br/>')
+    settingsHTML.push('Duration: ' + (Math.round(sceneList[i].duration/1000/60 * 10) / 10) + ' minutes<br/>')
+    settingsHTML.push('Notes: ' + sceneList[i].noteCount + '<br/>')
+    settingsTooltip.innerHTML = settingsHTML.join('')
+
+    tippy("#scene-" + i, {
+      theme: 'settings',
+      delay: [20, 20],
+      arrow: true,
+      arrowType: 'large',
+      interactive: false,
+      interactiveBorder: 20,
+      size: 'large',
+      duration: [100, 100],
+      animation: 'shift-toward',
+      multiple: false,
+      html: settingsTooltip
+    })
+
+
+
+
+
+  }
+
+
+
+
+
+
+}
+
 
 const onLinkedFileChange = async (eventType, filepath, stats) => {
   if (eventType !== 'change') {

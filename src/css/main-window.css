@@ -150,28 +150,32 @@ button:disabled {
 }
 
 #timeline {
+  margin-top: 30px;
+}
+
+#timeline #label {
   display: flex;
   flex-direction: row;
-  height: 100px;
+  height: 10px;
+  font-size: 10px;
+  overflow: hidden;
+  margin-bottom: 5px;
+
+}
+
+#timeline #bar {
+  display: flex;
+  flex-direction: row;
+  height: 60px;
   border-radius: 5px;
-  /*overflow: hidden;*/
-  margin-top: 50px;
+  overflow: hidden;
 }
 
-#timeline .scene:first-of-type {
-  border-radius: 8px 0 0 8px;
-  background: black;
-}
-
-#timeline .scene:last-child {
-  border-radius: 8px 0 0 8px;
-}
 
 #timeline .section {
   width: 100px;
   display: block;
   position: absolute;
-  top: -20px;
 }
 
 .tippy-tooltip.settings-theme {

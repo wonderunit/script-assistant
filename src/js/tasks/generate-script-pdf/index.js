@@ -11,6 +11,16 @@ let doneCallback
 let finishedCallback
 let chatID
 
+const getWordCount = (text) => {
+  if (!text) return 0
+  return text.trim().replace(/ +(?= )/g,'').split(' ').length
+}
+
+const getDurationOfWords = (text, durationPerWord) => {
+  if (!text) return 0
+  return getWordCount(text) * durationPerWord
+}
+
 const generate = async (options = {}) => {
   progressCallback = options.progressCallback
   doneCallback = options.doneCallback
@@ -58,8 +68,26 @@ const parseScript = (filepath) => {
   return scriptData
 }
 
+let sceneList = []
+let sceneListDuration = 0
+let sceneListCurrentAct = ''
+let sceneListCurrentSection = ''
+let sceneListNoteCount = 0 
+let sceneListSceneNumber = 0 
+let sceneListCurrentScene
+
 const renderScript = async (scriptData, render, outputFilePath, options) => {
   return new Promise((resolve, reject) => {
+
+    sceneList = []
+    sceneListDuration = 0
+    sceneListCurrentAct
+    sceneListCurrentSection
+    sceneListNoteCount = 0 
+    sceneListSceneNumber = 0 
+    sceneListCurrentScene = null
+
+
     if (!options) { options = {}}
     let documentSize = [8.5*72,11*72]
     let marginTop = 72
@@ -89,7 +117,6 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
     let showLineNumbers = options.showLineNumbers || false
     let showOutside = options.showOutside || false
     let titlePage = options.titlePage || true
-    pageNumber = 1
     let headerString = '%p.'
     let footerString = ''
     let currentSection = []
@@ -387,6 +414,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             characterText = token.plainText
             break
           case 'parenthetical':
+            sceneListDuration += getDurationOfWords(token.plainText, 300)+1000
             width = 250*scale
             left = 210*scale
             lineAfter = false
@@ -413,6 +441,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             }
             break
           case 'dialogue':
+            sceneListDuration += getDurationOfWords(token.plainText, 300)+1000
             width = 266*scale
             left = 180*scale
             lineAfter = false
@@ -603,6 +632,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       progressCallback({string: 'Writing ' + pageCount + ' pages.', chatID: chatID})
     }
 
+
     for (var i = 0; i < scriptData.script.length; i++) {
       let token = scriptData.script[i]
       let fontStyle = {bold: false, italic: false, underline: false, highlight: false, strikethrough: false}
@@ -618,8 +648,19 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
           width = 450*scale
           left = 108*scale
           align = 'center'
+          sceneListDuration += getDurationOfWords(token.plainText, 200)+500
           break
         case 'scene_heading':
+          sceneListSceneNumber++
+          if (sceneListCurrentScene) {
+            sceneListCurrentScene.noteCount = sceneListNoteCount
+            sceneListCurrentScene.duration = sceneListDuration
+            sceneList.push(sceneListCurrentScene)
+          }
+          sceneListDuration = 2000
+          sceneListNoteCount = 0 
+          sceneListCurrentScene = {currentPage: pageNumber, sceneNumber: sceneListSceneNumber, currentAct: sceneListCurrentAct, currentSection: sceneListCurrentSection, slugline: token.plainText}
+
           fontStyle.bold = true
           lineBefore = true
           width = 465*scale
@@ -634,6 +675,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
           width = (documentSize[0]-72)*scale
           left = 0
           align = 'right'
+          sceneListDuration += 1000
           break
         case 'dialogue_begin':
           let result = renderDialogue(scriptData, i, yCursor, documentSize, scale)
@@ -648,9 +690,15 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
        ////////////////////////////////////
         case 'note':
         case 'inline_note':
+          sceneListNoteCount++
           pageNotes.push({yLoc: yCursor-(7*scale)+yOffset, text: token.plainText})
           continue
         case 'section':
+          if (token.depth == 1) {
+            sceneListCurrentAct = token.plainText
+          } else {
+            sceneListCurrentSection = token.plainText
+          }
           currentSection[token.depth-1] = token.plainText
           currentSection = currentSection.slice(0,token.depth)
           continue
@@ -698,35 +746,28 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         yCursor += height
       }
     }
+
+    if (sceneListCurrentScene) {
+      sceneListCurrentScene.noteCount = sceneListNoteCount
+      sceneListCurrentScene.duration = sceneListDuration
+      sceneList.push(sceneListCurrentScene)
+    }
+
     addPage(true)
     doc.end()
     if (render) {
       stream.on('finish', () => {
         doneCallback({string: "done!", chatID: chatID})
         finishedCallback()
-        resolve({ pageCount: pageNumber })
+        resolve({ pageCount: pageNumber, sceneList: sceneList })
       })
     } else {
-      resolve({ pageCount: pageNumber })
+      resolve({ pageCount: pageNumber, sceneList: sceneList })
     }
   })
 }
 
 const getSettings = () => {
-
-    // pageCount: data.pageCount,
-    // scale: 0.8,
-    // xOffset: -22,
-    // yOffset: 60,
-    // scriptHeader: false,
-    // scriptFooter: false,
-    // showLineNumbers: true,
-    // showNotes: true,
-    // showOutside: true,
-    // titlePage: true,
-
-
-
   let settings = [
     { type: 'title', text: 'Export a Script PDF' },
     { type: 'description', text: 'Export your script as an industry standard script or with margins to include notes, storyboards, and space to write.' },
