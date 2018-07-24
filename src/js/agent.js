@@ -65,6 +65,8 @@
 */
 
 const wonderUtils = require('./wonder-utils')
+const storyTips = wonderUtils.shuffle(require('./data/story-tips'))
+const inspirationalQuotes = wonderUtils.shuffle(require('./data/inspirational-quotes'))
 
 
 var clientName;
@@ -94,7 +96,8 @@ var init = function(chatInterfaceParam) {
   // been a while
   chatInterface = chatInterfaceParam
 
-
+  getStoryTip()
+  getInspirationalQuote()
   //greeting()
 
 }
@@ -117,6 +120,22 @@ var greeting = function() {
 
 
 };
+
+
+
+const getStoryTip = () => {
+  let tip = storyTips.shift()
+  storyTips.push(tip)
+  queOutput(tip.replace(/\*\*([^*]+)\*\*/g, "<strong>$1<\/strong>"))
+}
+
+const getInspirationalQuote = () => {
+  let quote = inspirationalQuotes.shift()
+  inspirationalQuotes.push(quote)
+  queOutput(quote.message.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(\r\n|\n|\r)/gm,'') + ' - ' + quote.author)
+}
+
+
 
 var introduction = function() {
   var script = [
