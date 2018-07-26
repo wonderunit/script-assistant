@@ -13,7 +13,6 @@ let mainWindow
 
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = true
 
-
 if (os.platform() === 'darwin') {
   if (!isDev && !app.isInApplicationsFolder()) {
     const choice = dialog.showMessageBox({

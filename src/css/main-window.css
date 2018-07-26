@@ -192,8 +192,14 @@ button:disabled {
   position: relative;
 }
 
+
+
 .settings-content .row {
   margin-bottom: 5px;
+}
+
+.settings-content :last-child {
+  margin-bottom: 0;
 }
 
 .tippy-tooltip .title {
@@ -264,11 +270,17 @@ select {
   margin: 0px;
   box-sizing: border-box;
   border-radius: 5px;
-    -webkit-appearance: none;
+  -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-
 }
+
+.blurb .bigimage {
+  display: block;
+  margin: 0 -5px;
+}
+
+
 
 #outputs i {
   color: rgba(255,255,255,0.3);

@@ -64,307 +64,272 @@
 
 */
 
+
+const gis = require('g-i-s')
+
+
+const parseDuration = require('parse-duration')
+const moment = require('moment')
+
 const wonderUtils = require('./wonder-utils')
 const storyTips = wonderUtils.shuffle(require('./data/story-tips'))
 const inspirationalQuotes = wonderUtils.shuffle(require('./data/inspirational-quotes'))
 
+const doctorName = 'Script Assistant'
 
-var clientName;
-
-var doctorName = "Max";
-
-var outputQueue = [];
-
-var outputTimer;
-
-var awaitTimer;
-var awaitResponse;
-
-var mode = 'idle';
-
-var idleTimeout = 30 * 60 * 1000;
-var idleTimer;
-
+let outputQueue = []
+let outputTimer
+let awaitTimer
+let awaitResponse
+let mode = 'idle'
+let idleTimeout = 60 * 60 * 1000
+let idleTimer
 let outputCallback
 
 let chatInterface
 
-var init = function(chatInterfaceParam) {
+const init = function(chatInterfaceParam) {
   // new?
   // second time?
   // returning
   // been a while
+  greeting()
   chatInterface = chatInterfaceParam
-
-  getStoryTip()
-  getInspirationalQuote()
-  //greeting()
-
+  queOutput([
+    [["Here's a story tip...","If you are stuck maybe this will help","Need a tip?","I just heard this tip:"].randomElement(), getStoryTip()], 
+    [["Here's an inspirational quote...","Here's a quote:","Need some inspiration?","Have you heard this before?"].randomElement(), getInspirationalQuote()]
+  ].randomElement(), 2*60*1000)
 }
 
-
-var greeting = function() {
-  var greetingStrings = ["hi there", "hi " + clientName + "!", clientName + "!"];
-  queOutput(greetingStrings[Math.floor((Math.random()*greetingStrings.length))]);
-  var greetingQuestion = ["how's it going?", "how have you been?", "how are you?!?"];
-  var response = {positive: ["that's great!", "good to hear", "yay!", ":)", "sounds even better than my sitch."], negative: [["i'm sorry to hear about that", "i really am"], ["there will be brighter days!","especially for you!"]]};
-  var noResponse = ["oh. i guess you're busy", ":(", "sorry to bother you. I was just curious", "I thought we were friends, " + clientName, "ok dude. well I'll be right here if you need me", "..."];
-  queQuestion(greetingQuestion.randomElement(), response, noResponse.randomElement(), 20000);
-  introduction();
-  // history
-  // whats been going on with him
-  // can you buy my book?
-
-
-  // positive reinforcement
-
-
-};
-
-
+const greeting = () => {
+  let message = []
+  let otherMessages
+  let hour = new Date().getHours()
+  if (hour < 12) {
+    queOutput('Good morning!')
+    queOutput([
+      "It's time for a healthy breakfast!",
+      ["It's beautiful out today", "at least where I am", "inside this computer. :/", "it's actually hot in here!"],
+      "You look great today.",
+      "",
+      ""
+    ].randomElement())
+  } else if (hour > 12 && hour <= 17) {
+    queOutput('Good afternoon!')
+    queOutput([
+      "If you do a great job, I'll let you have an afternoon snack! Don't tell your mom.",
+      "",
+      "Almost quittin' time AMIRITE?",
+      "I'm still hungry. You?",
+      "Should we take a walk later?",
+    ].randomElement())
+  } else if (hour > 17) {
+    queOutput('Good evening!')
+    queOutput([
+      "When it gets dark out is when I do my best work.", 
+      ["I was just about to sleep!", "But now I'm super awake!!!"],
+      "You're burning the midnight oil!", 
+      "",].randomElement())
+  } else if (hour == 12) {
+    queOutput('Lunch time!')
+    queOutput([
+      "Wait, you're working at lunchtime? Your boss sounds like a real jerk.",
+      "Did you even eat yet?",
+      "Yeah! Let's work together!",
+    ].randomElement())
+  }
+  queOutput([
+    "It's time to write!",
+    "Let's tell some great stories!",
+    "I love your writing! Let's make something great together!",
+    "If you like Script Assistant, you should tell your friends on Twitter!",
+  ].randomElement())
+}
 
 const getStoryTip = () => {
   let tip = storyTips.shift()
   storyTips.push(tip)
-  queOutput(tip.replace(/\*\*([^*]+)\*\*/g, "<strong>$1<\/strong>"))
+  return tip.replace(/\*\*([^*]+)\*\*/g, "<strong>$1<\/strong>")
 }
 
 const getInspirationalQuote = () => {
   let quote = inspirationalQuotes.shift()
   inspirationalQuotes.push(quote)
-  queOutput(quote.message.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(\r\n|\n|\r)/gm,'') + ' - ' + quote.author)
+  return quote.message.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(\r\n|\n|\r)/gm,'') + ' - ' + quote.author
 }
 
-
-
-var introduction = function() {
-  var script = [
-  "i'm Max, a script doctor!",
-  "like most script doctors, i'm not a real doctor",
-  "i'm like dr. pepper",
-  "or dr. dre",
-  "but slightly more important",
-  "do you realize that i've written 4 scripts and done coverage for all the major studios?",
-  "i'm a pretty big deal.",
-  "anyways..",
-  "normally i charge $400 an hour for my services",
-  "but today i do for free",
-  "i'm here to help",
-  "feel free to ask me stuff"];
-
-  queOutput(script);
-
-};
-
-var queOutput = function(outputVal, delay) {
-  mode = 'queued';
-  if (!delay) { delay = 0; }
-  if (Array.isArray(outputVal)){
+const queOutput = (outputVal, delay) => {
+  mode = 'queued'
+  if (!delay) { delay = 0 }
+  if (Array.isArray(outputVal)) {
     for (var i = 0; i < outputVal.length; i++) {
-      if (i > 0) { delay = 0; }
+      if (i > 0) { delay = 0 }
       if (outputVal[i] !== "") {
-        outputQueue.push({type: "statement", string: outputVal[i], delay: delay});
+        outputQueue.push({type: "statement", string: outputVal[i], delay: delay})
       }
     }
   } else {
     if (outputVal !== "") {
-      outputQueue.push({type: "statement", string: outputVal, delay: delay});
+      outputQueue.push({type: "statement", string: outputVal, delay: delay})
     }
   }
-  checkOutput();
+  checkOutput()
+  clearTimeout(idleTimer)
+  idleTimer = setTimeout(function(){returnFromIdle(); }, idleTimeout)
+}
 
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(function(){returnFromIdle(); }, idleTimeout);
+const quePriorityOutput = (string, delay) => {
+  mode = 'queued'
+  if (!delay) { delay = 0 }
+  outputQueue.unshift({type: "statement", string: string, delay: delay})
+  checkOutput()
+}
 
-};
+const queQuestion = (string, response, noResponse, waitTime, delay) => {
+  if (!delay) { delay = 0 }
+  outputQueue.push({type: "question", string: string, response: response, noResponse: noResponse, waitTime: waitTime, delay: delay})
+  checkOutput()
+}
 
-var quePriorityOutput = function(string, delay) {
-  mode = 'queued';
-  if (!delay) { delay = 0; }
-  outputQueue.unshift({type: "statement", string: string, delay: delay});
-  checkOutput();
-};
-
-var queQuestion = function(string, response, noResponse, waitTime, delay) {
-  if (!delay) { delay = 0; }
-  outputQueue.push({type: "question", string: string, response: response, noResponse: noResponse, waitTime: waitTime, delay: delay});
-  checkOutput();
-};
-
-var checkOutput = function() {
+const checkOutput = () => {
   if (outputTimer) {
   } else {
     if (outputQueue.length > 0) {
-      clearTimeout(idleTimer);
-      var t = outputQueue.shift();
-
+      clearTimeout(idleTimer)
+      let t = outputQueue.shift()
       if (t.type == "question") {
-        mode = 'watingresponse';
-        awaitResponse = {response: t.response, noResponse: t.noResponse};
-        awaitTimer = setTimeout(function() {noResponse(); }, t.waitTime);
+        mode = 'watingresponse'
+        awaitResponse = {response: t.response, noResponse: t.noResponse}
+        awaitTimer = setTimeout(function() {noResponse(); }, t.waitTime)
       } else {
-        mode = 'queued';
-
+        mode = 'queued'
       }
-
-      var naturalDelay = 700 + (t.string.length * 20) + t.delay;
-      outputTimer = setTimeout(function() {output(t.string); }, naturalDelay);
-
+      let naturalDelay = 700 + (t.string.length * 20) + t.delay
+      outputTimer = setTimeout(function() {output(t.string) }, naturalDelay)
     } else {
-      mode = 'idle';
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(function(){returnFromIdle(); }, idleTimeout);
+      mode = 'idle'
+      clearTimeout(idleTimer)
+      idleTimer = setTimeout(function(){returnFromIdle(); }, idleTimeout)
     }
   }
-};
+}
 
-var returnFromIdle = function() {
-  idleTimer = null;
-  queOutput("Can I ask you a question?");
-  queQuestion("Do you like cats?", {positive: ["what!?!? i hate cats", "well.. you're wrong"], negative: "me too"}, ["I'm just saying.. cats r weird yo", "whats to like about them?"], 20000);
-  queOutput("I'll never know why people like cats");
-};
+const returnFromIdle = () => {
+  idleTimer = null
+  queOutput([
+    [["Here's a story tip...","If you are stuck maybe this will help","Need a tip?","I just heard this tip:"].randomElement(), getStoryTip()], 
+    [["Here's an inspirational quote...","Here's a quote:","Need some inspiration?","Have you heard this before?"].randomElement(), getInspirationalQuote()]
+  ].randomElement())
+}
 
-var noResponse = function() {
+const noResponse = () => {
   // should he accumulate idle points? more ignored means more absent
-  awaitTimer = null;
-  mode = 'idle';
-  clearQueue();
-  idleTimeout += 1 * 60 * 1000;
+  awaitTimer = null
+  mode = 'idle'
+  clearQueue()
+  idleTimeout += 1 * 60 * 1000
   if (Array.isArray(awaitResponse.noResponse)) {
     for (var i = 0; i < awaitResponse.noResponse.length; i++) {
-      quePriorityOutput(awaitResponse.noResponse[i]);
+      quePriorityOutput(awaitResponse.noResponse[i])
     }
   } else {
-    quePriorityOutput(awaitResponse.noResponse);
+    quePriorityOutput(awaitResponse.noResponse)
   }
-};
+}
 
-var output = function(string) {
-  outputTimer = null;
-  // write to chat
-
+const output = (string) => {
+  outputTimer = null
   chatInterface.agentOutput(string)
-
-
- 
-  //chatWindow.addChatLine("Script Dr. " + doctorName, string);
-
-
-  // chat should not speak!!
-
-  // if (string.slice(-1) == "?") {
-  //   speech.speakText(string.replace(/<(?:.|\n)*?>/gm, '') + "? ");
-  // } else if (string.slice(-2) == "...") {
-  //   speech.speakText(string.replace(/<(?:.|\n)*?>/gm, '').replace("...", ".") + " ");
-  // } else if (string.slice(-1) == ".") {
-  //   speech.speakText(string.replace(/<(?:.|\n)*?>/gm, '') + " ");
-  // } else if (string.slice(-1) == "!") {
-  //   speech.speakText(string.replace(/<(?:.|\n)*?>/gm, '') + " ");
-  // } else {
-  //   speech.speakText(string.replace(/<(?:.|\n)*?>/gm, '') + ". ");
-  // }
-
   if (!awaitTimer) {
-    checkOutput();
+    checkOutput()
   }
+}
 
-};
+const clearQueue = () => {
+  clearTimeout(outputTimer)
+  outputTimer = null
+  outputQueue = []
+}
 
-var clearQueue = function() {
-  clearTimeout(outputTimer);
-  outputTimer = null;
-  outputQueue = [];
-};
-
-var input = function(string) {
-  string = string.toLowerCase();
-
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(function(){returnFromIdle(); }, idleTimeout);
-
-
-  var type = responseType(string);
-
+const input = (string) => {
+  string = string.toLowerCase()
+  clearTimeout(idleTimer)
+  idleTimer = setTimeout(function(){returnFromIdle()}, idleTimeout)
+  let type = responseType(string)
   if (type == "statement") {
-    type = (statementType(string));
+    type = (statementType(string))
   } else if (type == "question") {
-    type = (questionType(string));
+    type = (questionType(string))
   } else {
 
   }
 
-  console.log(type);
+  console.log(type)
 
   if (mode == "idle") {
-    idleRespond(type, string);
-
+    idleRespond(type, string)
   } else if (mode == "watingresponse") {
-    clearTimeout(awaitTimer);
-    awaitTimer = null;
-    var answer;
+    clearTimeout(awaitTimer)
+    awaitTimer = null
+    let answer
     if (type.indexOf("question") != -1) {
-      clearQueue();
-      queOutput([["dude!","don't you know", "you're not supposed to answer a question", "with a question?", "anyways..."],["ok.."],["alright"]].randomElement());
-      idleRespond(type, string);
-      return;
+      clearQueue()
+      queOutput([["dude!","don't you know", "you're not supposed to answer a question", "with a question?", "anyways..."],["ok.."],["alright"]].randomElement())
+      idleRespond(type, string)
+      return
     } else if (type == "negative") {
       if (awaitResponse.response.negative) {
         if (Array.isArray(awaitResponse.response.negative)) {
-          answer = awaitResponse.response.negative.randomElement();
+          answer = awaitResponse.response.negative.randomElement()
         } else {
-          answer = awaitResponse.response.negative;
+          answer = awaitResponse.response.negative
         }
       } else {
         if (Array.isArray(awaitResponse.response)) {
-          answer = awaitResponse.response.randomElement();
+          answer = awaitResponse.response.randomElement()
         } else {
-          answer = awaitResponse.response;
+          answer = awaitResponse.response
         }
       }
     } else {
       if (typeof awaitResponse.response.positive == 'function') {
-        awaitResponse.response.positive();
-        return;
+        awaitResponse.response.positive()
+        return
       } else {
         if (awaitResponse.response.positive) {
           if (Array.isArray(awaitResponse.response.positive)) {
-            answer = awaitResponse.response.positive.randomElement();
+            answer = awaitResponse.response.positive.randomElement()
           } else {
-            answer = awaitResponse.response.positive;
+            answer = awaitResponse.response.positive
           }
         } else {
           if (Array.isArray(awaitResponse.response)) {
-            answer = awaitResponse.response.randomElement();
+            answer = awaitResponse.response.randomElement()
           } else {
-            answer = awaitResponse.response;
+            answer = awaitResponse.response
           }
         }
       }
     }
-
     if (Array.isArray(answer)) {
       for (var i = 0; i < answer.length; i++) {
         //Priority?
-        quePriorityOutput(answer[i]);
+        quePriorityOutput(answer[i])
       }
     } else {
-      quePriorityOutput(answer);
+      quePriorityOutput(answer)
     }
-
   } else {
-    clearQueue();
-    idleRespond(type, string);
+    clearQueue()
+    idleRespond(type, string)
   }
+}
 
-
-};
-
-var specificQuestions = [
+const specificQuestions = [
   ["how old are you", ["27",["old enough to be mad successful as one of the most sought after script doctors!"]]],
-  ["whats your name", [["Script Dr. " + doctorName,"whats yours?","oh I already knew that", "you're " + clientName + "!"],["Max!", "but you can call me anytime"]]],
-  ["what's your name", [["Script Dr. " + doctorName,"whats yours?","oh I already knew that", "you're " + clientName + "!"],["Max!", "but you can call me anytime"]]],
-  ["what is your name", [["Script Dr. " + doctorName,"whats yours?","oh I already knew that", "you're " + clientName + "!"],["Max!", "but you can call me anytime"]]],
+  ["whats your name", [[doctorName,"whats yours?"],[doctorName + "!", "but you can call me anytime"]]],
+  ["what's your name", [[doctorName,"whats yours?"],[doctorName + "!", "but you can call me anytime"]]],
+  ["what is your name", [[doctorName,"whats yours?"],[doctorName + "!", "but you can call me anytime"]]],
   ["what do you do", [["I'm here to help", "once you outline a little more","i can make some story suggestions","make sure you add tags","characters", "settings","etc!","i can be helpful!","you'll see!"]]],
   ["how did you know my name", "it's through google drive. no one else can see your name except people you share your google drive document with."],
   ["how do you know my name", "it's through google drive. no one else can see your name except people you share your google drive document with."],
@@ -372,32 +337,107 @@ var specificQuestions = [
   ["are you a robot", [["YES","wait.","why did it type that automatically?","where is my body?"]]],
   ["are you a bot", [["YES","wait.","why did it type that automatically?","where is my body?"]]],
   ["are you real", [["define real.","im not a real person", "but I am real cool"]]],
-  ["who are you", "I'm script doctor!"],
+  ["who are you", "I'm just your neighborhood Script Assistant!"],
   ["how are you", ["I'm pretty good.","I can't complain","im always feeling pretty good!"]],
-  ["who built this", [["Charles Forman","you can see email him at: setpixelphone@gmail.com"]]],
-  ["who built you", [["Charles Forman","you can see email him at: setpixelphone@gmail.com"]]],
-  ["what do you know", [["not a whole lot","im just a script doctor", "livin in my mom's basement", "in a computer"], "not much :(", ["if you need help..", "please email charles","at setpixelphone@gmail.com"]]],
+  ["how are you doing", ["I'm pretty good.","I can't complain","im always feeling pretty good!"]],
+  ["who built this", [["Charles Forman","you can see email him at: charles@wonderunit.com"]]],
+  ["who built you", [["Charles Forman","you can see email him at: charles@wonderunit.com"]]],
+  ["what do you know", [["not a whole lot","im just a script assistant", "livin in my mom's basement", "in a computer"], "not much :(", ["if you need help..", "please email charles","at charles@wonderunit.com"]]],
   ["what do you eat", [["electricity!","but not much", "i'm trying to cut down"], "i'm hungry", ["why?", "do I look fat?"]]],
-];
+]
 
-var tellJoke = function() {
-  var joke = [
+const specificStatements = [
+  ["i love you", ["i love you too!", "what's not to love?"]],
+  ["fuck you", ["you kiss your mother with that mouth?",["hey!","don't be a","8=====D", "actually...", "more like a","8=D", "LOLZ", "mad burn"]]],
+  ["i want to kill myself", "call 1-800-273-8255"],
+]
+
+
+
+const taskTimer = (string) => {
+  let parsedTime = parseDuration(string)
+
+  if (parsedTime > 30000) {
+    let futureTime = moment().add(parsedTime)
+
+
+    queOutput("Starting timer to end at: " + futureTime.format("h:mma") + "." )
+    queOutput("Timer ending in about " + futureTime.fromNow(true) + "." )
+    queOutput("Now is the time to focus - and write!!! Switch to your writing app now!", 3000 )
+
+    setTimeout(()=>{
+      queOutput("Timer done!!! HOORAY!" )
+      queOutput("What did you write?", 1000 )
+      queOutput("Anything good?", 3000 )
+    }, parsedTime)
+
+  } else {
+    queQuestion("Should I set a timer for 15 minutes?", {positive: ()=>{taskTimer('15m')}, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", ".."].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000)
+  }
+
+  // set a timer for the future
+  // set an interval every second to update 
+}
+
+const showImage = (string) => {
+  let content = string.split('image')[1].replace('of','').replace('a','').trim()
+  if (content == '') {
+    content = 'cute cats'
+  }
+
+  gis(content, (error, results) => {
+    if (error) {
+      queOutput("Sorry! I couldn't find any!")
+    }
+    else {
+      let number = Math.round(Math.random()*Math.min(results.length-1,15))
+      queOutput('<img src="' + results[number].url + '" class="bigimage" style="width:250px;height:' + Math.round((results[number].height/results[number].width)*250) + 'px;">' )
+      queQuestion("Wanna see another?", {positive: ()=>{showImage('image ' + content)}, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", ".."].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000, 3000)
+    }
+  })
+
+
+}
+
+
+const tellTip = () => {
+  queOutput(
+    [
+      ["Sure!", "Absolutely!", "Ok! Here's a story tip...","Alright! If you are stuck maybe this will help","Ok!","","","","","","Ok! ...", "This is a good one!"].randomElement(), 
+      getStoryTip()
+    ])
+  queQuestion(["Want another?", "One more tip?", "Would you like another?", "Want another tip?"].randomElement(), {positive: tellTip, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!"].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000, 1000*6)
+}
+
+const tellQuote = () => {
+  queOutput([["Here's an inspirational quote...","Here's a quote:","Need some inspiration?","Have you heard this before?"].randomElement(), getInspirationalQuote()])
+  queQuestion(["Want another?", "One more quote?", "Would you like another?", "Want another quote?"].randomElement(), {positive: tellQuote, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!"].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000, 1000*6)
+}
+
+const tellJoke = (input) => {
+  let joke = [
     ["If you want to know who is really man’s best friend,", "put your dog and your wife in the trunk of your car,","come back an hour later,","open the trunk,","and see which one is happy to see you.","see not very funny."],
     ["What happens to a frog's car when it breaks down?","It gets toad away."],
     ["Yo mamma is so ugly when she tried to join an ugly contest they said,","Sorry, no professionals."],
     ["What did the duck say when he bought lipstick?","Put it on my bill."],
     ["Did you hear about the guy whose whole left side was cut off?","He's all right now."],
-  ].randomElement();
-  queOutput(joke);
-};
+  ].randomElement()
+  queOutput(joke)
+}
+
+const tellNeed = (input) => {
+  queOutput(["whoa!", "what!?!?", "no way!"].randomElement())
+  queOutput(input + ", too!")
+  queOutput(["same same!", ["we are like the person.", "except I'm a computer"], "awesome.", ""].randomElement())
+}
 
 var tellHelp = function() {
   var help = [
-    clientName + "! All you had to do is ask.",
+    "Of course! All you had to do is ask.",
     "What kind of help do you want?",
     "Do you want a <strong>tour</strong>?",
-    "Do you want a story <strong>ideas</strong>?",
-    "Do you want some <strong>tips</strong>?",
+    "Do you want a story <strong>tip</strong>?",
+    "Do you want hear a <strong>quote</strong>?",
     "I can ask you questions and make suggestions about your story.",
     "It might give you some ideas!",
    ];
@@ -503,60 +543,77 @@ var tellTour5 = function() {
   queQuestion("Did I answer all your questions?", {positive: "Great!", negative: [["I'm sorry", "Feel free to email Charles Forman, the creator:", "at setpixelphone@gmail.com"]]}, ["I'm sorry", "Feel free to email Charles Forman, the creator:", "at setpixelphone@gmail.com"], 60000);
 };
 
-
-
-var idleRespond = function(type, string){
-  var response;
-  var delay;
+const idleRespond = (type, string) => {
+  let response
+  let delay
   switch (type) {
     case "help":
-      tellHelp();
-      break;
+    case "helpquestion":
+      tellHelp()
+      break
     case "joke":
-      tellJoke();
-      break;
+      tellJoke(string)
+      break
+    case "tip":
+      tellTip()
+      break
+    case "timer":
+      taskTimer(string)
+      break
+    case "quote":
+      tellQuote()
+      break
+    case "image":
+      showImage(string)
+      break
+    case "need":
+      tellNeed(string)
+      break
     case "tour":
-      tellTour();
-      break;
-    case "read":
-      //speech.speakFromNode();
-      break;
-    case "continue":
-      //speech.speakFromNode(outlinerApp.getCurrentSelection());
-      break;
+      tellTour()
+      break
     case "stop":
       //speech.stop();
-      queOutput("Alright.");
-      break;
+      queOutput("Alright.")
+      break
     case "specificquestion":
       for (var i = 0; i < specificQuestions.length; i++) {
         if (specificQuestions[i][0] === string.split("?").join('')){
           if (Array.isArray(specificQuestions[i][1])){
-            var answer = specificQuestions[i][1].randomElement();
-
+            var answer = specificQuestions[i][1].randomElement()
             queOutput(answer);
-
           } else {
-            queOutput(specificQuestions[i][1]);
+            queOutput(specificQuestions[i][1])
           }
-          response = specificQuestions[i][1];
+          response = specificQuestions[i][1]
         }
       }
-
-      //if (response) { queOutput(response, delay) };
-      break;
+      break
+    case "specificstatement":
+      for (var i = 0; i < specificStatements.length; i++) {
+        if (specificStatements[i][0] === string.split("").join('')){
+          if (Array.isArray(specificStatements[i][1])){
+            var answer = specificStatements[i][1].randomElement()
+            queOutput(answer);
+          } else {
+            queOutput(specificStatements[i][1])
+          }
+          response = specificStatements[i][1]
+        }
+      }
+      break
     case "laugh":
-      var responses = [
+      let responses = [
         ["lolz"],
         ["i know!", "funny right?"],
         ["haha"],
         [":)"],
         ["tee hee"]
-      ];
-      response = responses.randomElement();
-      if (response) { queOutput(response, delay); }
-      queQuestion(["wanna hear a joke?", "wanna hear something funny?"].randomElement(), {positive: tellJoke, negative: ["fine. be that way", "ok. then you tell me one."]}, ["it's ok. i't not funny anyways.", "oh well. it was a good one.", ":("].randomElement(), 20000);
-      break;
+      ]
+      response = responses.randomElement()
+      if (response) { queOutput(response, delay) }
+      queQuestion(["wanna hear a joke?", "wanna hear something funny?"].randomElement(), {positive: tellJoke, negative: ["fine. be that way", "ok. then you tell me one."]}, ["it's ok. i't not funny anyways.", "oh well. it was a good one.", ":("].randomElement(), 20000)
+      break
     case "greeting":
       response = [
         ["hey dude!"],
@@ -566,9 +623,9 @@ var idleRespond = function(type, string){
         ["long time no see!"],
         ["yooooo"],
         ["hi!"],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      break
     case "greetingquestion":
       response = [
         ["i'm awake!", "i'm right here!"],
@@ -578,29 +635,29 @@ var idleRespond = function(type, string){
         ["i was just in the bathroom.", "don't go in there"],
         ["hello!"],
         ["hi!"],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      queQuestion(["what are we working on right now?","what are you doing?","are you working on something cool right now?"].randomElement(), ["sounds great", "let me know how I can help", "awesome!"].randomElement(), ["ok.. i can see you're busy", "... that's exciting.", "oh well. I can see anyways."].randomElement(), 20000);
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      queQuestion(["what are we working on right now?","what are you doing?","are you working on something cool right now?"].randomElement(), ["sounds great", "let me know how I can help", "awesome!"].randomElement(), ["ok.. i can see you're busy", "... that's exciting.", "oh well. I can see anyways."].randomElement(), 20000)
+      break
     case "qualityquestion":
-      delay = 2000;
+      delay = 2000
       response = [
         ["hmm...", "thats a good question"],
         ["let me think about that..."],
         ["hmm......"],
         ["I don't know..."],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
       response = [
         ["i'm afraid I don't know"],
         ["i definately don't know that one."],
         ["i'm confused.","i don't know."],
         ["no idea.."],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      queOutput(["what do you think?",""].randomElement());
-      queQuestion(string, {positive: ["sounds great", "let me know how I can help", "awesome!"], negative: ["me neither", "yeah.. i dont know"]}, ["ok.. i can see you're busy", "... that's exciting.", ["oh well. I'll find out.", "someday"]].randomElement(), 20000);
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      queOutput(["what do you think?",""].randomElement())
+      queQuestion(string, {positive: ["sounds great", "let me know how I can help", "awesome!"], negative: ["me neither", "yeah.. i dont know"]}, ["ok.. i can see you're busy", "... that's exciting.", ["oh well. I'll find out.", "someday"]].randomElement(), 20000)
+      break
     case "confusionquestion":
       response = [
         ["i don't know!","you seem confused","can I help you?"],
@@ -610,9 +667,9 @@ var idleRespond = function(type, string){
         ["I don't know all the answers", "but i will try"],
         ["????","can you ask me in a different way?"],
         ["if you still have questions", "you can email Charles the creator of this", "at setpixelphone@gmail.com"],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      break
     case "thanks":
       response = [
         ["no,","thank you!"],
@@ -620,9 +677,9 @@ var idleRespond = function(type, string){
         ["no problem!"],
         ["hey", "thank you", "for being a friend."],
         ["it's my pleasure"]
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      break
     case "affirmative":
       response = [
         [":D"],
@@ -632,9 +689,9 @@ var idleRespond = function(type, string){
         ["always", "for you", "forever."],
         ["great!","you know you're my favorite","right?","I'm for real","not in a creepy way","ok","i'll shut up now."],
         ["yes!"]
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      break
     case "negative":
       response = [
         [":("],
@@ -644,9 +701,9 @@ var idleRespond = function(type, string){
         ["don't worry"],
         ["(╯°□°）╯︵ ┻━┻", "im flippin tables!"],
         ["¯\_(ツ)_/¯"],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      break
     case "positive":
       response = [
         [":D"],
@@ -657,9 +714,9 @@ var idleRespond = function(type, string){
         [";)"],
         ["--------{---(@"],
         ["d(^o^)b¸¸♬·¯·♩¸¸♪·¯·♫¸¸"],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      break
     case "sorry":
       response = [
         ["apology accepted!"],
@@ -668,9 +725,9 @@ var idleRespond = function(type, string){
         ["no problem"],
         ["no!", "i'm sorry!"],
         ["I'm glad we're friends again!"],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
-      break;
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
+      break
     case "swear":
       response = [
         ["oh no","was it something i said?"],
@@ -682,45 +739,46 @@ var idleRespond = function(type, string){
         ["hey!","and I mean this in the best possible way...","ᶠᶸᶜᵏ♥ᵧₒᵤ"],
         ["hey!","don't be a","8=====D", "actually...", "more like a","8=D", "LOLZ", "mad burn"],
         ["(╯︵╰,)"],
-      ].randomElement();
-      if (response) { queOutput(response, delay); }
+      ].randomElement()
+      if (response) { queOutput(response, delay) }
       break;
     case "yesnoquestion":
-      queOutput(["hmm...", "let me think about that...", "i was just thinking about that..", "", "", ""].randomElement());
-
-      var outcomes = ["yes", "yes", "yes", "no", "no", "maybe", "uknown", "icant", "secret"];
-
-      var asciiSum = 0;
-
+      queOutput(["hmm...", "let me think about that...", "i was just thinking about that..", "", "", ""].randomElement())
+      let outcomes = ["yes", "yes", "yes", "no", "no", "maybe", "uknown", "icant", "secret"]
+      let asciiSum = 0
       for (var i = 0; i < string.length; i++) {
-        asciiSum += string.charCodeAt(i);
+        asciiSum += string.charCodeAt(i)
       }
-
-      var outcome = outcomes[asciiSum % (outcomes.length)];
-      response = [];
+      let outcome = outcomes[asciiSum % (outcomes.length)]
+      response = []
       switch (outcome) {
         case "yes":
           response.push([
             "yes!!!",
             "yes.",
+            "yeppers.",
+            "yeah.",
+            "sure.",
             "yep",
             ["yeah.", "i think so"]
-          ].randomElement());
-          break;
+          ].randomElement())
+          break
         case "no":
           response.push([
             "no",
+            "naw",
+            "hell naw",
             "never",
             "nope",
             ["not now", "not ever"]
-          ].randomElement());
-          break;
+          ].randomElement())
+          break
         case "maybe":
           response.push([
             "maybe",
             ["maybe", "if you want it enough"]
-          ].randomElement());
-          break;
+          ].randomElement())
+          break
         case "uknown":
           response.push([
             ["i have to say","i don't know."],
@@ -728,157 +786,145 @@ var idleRespond = function(type, string){
             "i don't know",
             "i don't know everything!",
             "i know nothing jon snow",
-          ].randomElement());
-          break;
+          ].randomElement())
+          break
         case "icant":
           response.push([
             ["you know I can't tell you that!"],
             ["I wish I could say", "but I can not"],
             "I can't say"
-          ].randomElement());
-          break;
+          ].randomElement())
+          break
         case "secret":
           response.push([
-            ["a script doctor never sells his secrets", "or does he?"],
+            ["a script assistant never sells his secrets", "or does he?"],
             ["that's a secret!"],
             ["that information will go with me to my grave!", "or", "i'll tell you for $20"],
             ["i took an oath never to say"]
-          ].randomElement());
-          break;
+          ].randomElement())
+          break
       }
-
-      delay = 2000;
+      delay = 2000
       for (var i = 0; i < response.length; i++) {
-        queOutput(response[i], delay);
+        queOutput(response[i], delay)
       }
-
       if(Math.random() > 0.6) {
-        queQuestion(string, ["i knew it!", "your secret is safe with me.", "i'm telling everyone!"].randomElement(), ["i thought we were friends :(", "fine. be that way", "i didn't care anyways"].randomElement(), 20000);
+        queQuestion(string, ["i knew it!", "your secret is safe with me.", "i'm telling everyone!"].randomElement(), ["i thought we were friends :(", "fine. be that way", "i didn't care anyways"].randomElement(), 20000)
       }
-
-      break;
+      break
   }
-};
+}
 
-
-
-var statementType = function(string) {
+const statementType = (string) => {
   // greeting
   // command
   // statement
   // emote
-  var greetingStrings = ["hi", "hello", "sup", "yo", "hey"];
-  var thanksStrings = ["thank", "thanks"];
-  var commandStrings = ["need", "idea", "help", "joke", "tour", "shut", "read", "stop", "continue"];
-  var laughStrings = ["heh", "ha", "hah", "haha", "lol", "lul", "lolz", "lols", "rofl", "hahaha"];
-  var positiveStrings = [":)", ":D", "xD", "yay", "hooray", "awesome"];
-  var negativeStrings = [":(", ":/"];
-  var swearStrings = ["fuck", "bitch"];
-  var sorryStrings = ["sorry"];
-
-  var wordList = string.split('.').join('').split('!').join('').split(' ');
+  if (specificStatement(string)) { return "specificstatement" }
+  var greetingStrings = ["hi", "hello", "sup", "yo", "hey"]
+  var thanksStrings = ["thank", "thanks"]
+  var commandStrings = ["need", "idea", "help", "joke", "tour", "shut", "read", "stop", "continue", "tip", "quote", "timer", "image"]
+  var laughStrings = ["heh", "ha", "hah", "haha", "lol", "lul", "lolz", "lols", "rofl", "hahaha"]
+  var positiveStrings = [":)", ":D", "xD", "yay", "hooray", "awesome", 'word', 'werd']
+  var negativeStrings = [":(", ":/", 'sad']
+  var swearStrings = ["fuck", "bitch"]
+  var sorryStrings = ["sorry"]
+  var wordList = string.split('.').join('').split('!').join('').split(' ')
   for (var i = 0; i < wordList.length; i++) {
     if (greetingStrings.indexOf(wordList[i]) != -1) {
-      return "greeting";
+      return "greeting"
     }
     if (thanksStrings.indexOf(wordList[i]) != -1) {
-      return "thanks";
+      return "thanks"
     }
     if (commandStrings.indexOf(wordList[i]) != -1) {
-      return wordList[i];
+      return wordList[i]
     }
     if (laughStrings.indexOf(wordList[i]) != -1) {
-      return "laugh";
+      return "laugh"
     }
     if (positiveStrings.indexOf(wordList[i]) != -1) {
-      return "positive";
+      return "positive"
     }
     if (negativeStrings.indexOf(wordList[i]) != -1) {
-      return "negative";
+      return "negative"
     }
     if (swearStrings.indexOf(wordList[i]) != -1) {
-      return "swear";
+      return "swear"
     }
     if (sorryStrings.indexOf(wordList[i]) != -1) {
-      return "sorry";
+      return "sorry"
     }
   }
+  return "unknownstatement"
+}
 
-  return "unknownstatement";
+const specificStatement = (string) => {
+  for (var i = 0; i < specificStatements.length; i++) {
+    if (string == specificStatements[i][0]) {
+      return "specificstatement"
+    }
+  }
+  return false
+}
 
-};
-
-
-
-var specificQuestion = function(string) {
-
-
+const specificQuestion = (string) => {
   for (var i = 0; i < specificQuestions.length; i++) {
     if (string == specificQuestions[i][0]) {
-      return "specificquestion";
+      return "specificquestion"
     }
   }
-  return false;
-};
+  return false
+}
 
-
-var questionType = function(string) {
-
+const questionType = (string) => {
   string = string.split("?").join("");
-
-  if (specificQuestion(string)) { return "specificquestion"; }
-
-  var yesnoquestionStart = ["you", "is", "do", "can", "have", "must", "did", "will", "am", "should", "could", "would", "are", "arent", "isnt"];
-  var qualityQuestionStart = ["what", "whats", "what's", "where", "wheres", "where's", "when", "why", "which", "who", "whose", "how"];
-  var greetingStrings = ["hi", "hello", "sup", "yo", "hey"];
-
-  var wordList = string.split('.').join('').split('!').join('').split(' ');
-
+  if (specificQuestion(string)) { return "specificquestion" }
+  let yesnoquestionStart = ["you", "is", "do", "can", "have", "must", "did", "will", "am", "should", "could", "would", "are", "arent", "isnt"]
+  let qualityQuestionStart = ["what", "whats", "what's", "where", "wheres", "where's", "when", "why", "which", "who", "whose", "how"]
+  let greetingStrings = ["hi", "hello", "sup", "yo", "hey"]
+  let help = ['help']
+  let wordList = string.split('.').join('').split('!').join('').split(' ')
   if (yesnoquestionStart.indexOf(wordList[0]) != -1) {
-    return "yesnoquestion";
+    return "yesnoquestion"
   }
-
   if (qualityQuestionStart.indexOf(wordList[0]) != -1) {
-    return "qualityquestion";
+    return "qualityquestion"
   }
-
   if (greetingStrings.indexOf(wordList[0]) != -1) {
-    return "greetingquestion";
+    return "greetingquestion"
   }
+  if (help.indexOf(wordList[0]) != -1) {
+    return "helpquestion"
+  }
+  return "confusionquestion"
+}
 
-  return "confusionquestion";
-};
-
-var responseType = function(string) {
+const responseType = (string) => {
   // question
   // affirmative
   // negative
   // statement
-
-  var affirmativeStrings = ["yeah", "yes", "yep", "yah","sure","ok","alright", "mhm", "mmhmm", "k", "kinda", "sort", "somewhat", "good", "great","fantastic","super"];
-  var negativeStrings = ["no","nope","not","don't", "dont","im ok","suck","sucks","shit","bad"];
-
+  let affirmativeStrings = ["yeah", "yes", "yep", "yah","sure","ok","alright", "mhm", "mmhmm", "k", "kinda", "sort", "somewhat", "good", "great","fantastic","super"]
+  let negativeStrings = ["no","nope","not","don't", "dont","im ok","suck","sucks","shit","bad","just kidding"]
   if (string.indexOf("?") != -1) {
-    return "question";
+    return "question"
   }
-
-  var wordList = string.split('.').join('').split('!').join('').split(' ');
+  var wordList = string.split('.').join('').split('!').join('').split(' ')
   for (var i = 0; i < wordList.length; i++) {
     if (negativeStrings.indexOf(wordList[i]) != -1) {
-      return "negative";
+      return "negative"
     }
     if (affirmativeStrings.indexOf(wordList[i]) != -1) {
-      return "affirmative";
+      return "affirmative"
     }
   }
-
-  return "statement";
-};
+  return "statement"
+}
 
 const clear = () => {
   clearQueue()
 }
-
 
 module.exports = {
   init,

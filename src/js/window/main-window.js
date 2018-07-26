@@ -64,8 +64,6 @@ const loadStats = async (filepath) => {
 }
 
 const renderTimeline = (sceneList) => {
-  console.log(sceneList)
-  
   let timelineDom = document.querySelector('#timeline')
 
   let timelineHTML = []
