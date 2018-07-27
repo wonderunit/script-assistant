@@ -64,10 +64,9 @@
 
 */
 
+const {app} = require('electron').remote
 
 const gis = require('g-i-s')
-
-
 const parseDuration = require('parse-duration')
 const moment = require('moment')
 
@@ -158,24 +157,24 @@ const getInspirationalQuote = () => {
   return quote.message.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(\r\n|\n|\r)/gm,'') + ' - ' + quote.author
 }
 
-const queOutput = (outputVal, delay) => {
+const queOutput = (outputVal, delay, chatID) => {
   mode = 'queued'
   if (!delay) { delay = 0 }
   if (Array.isArray(outputVal)) {
     for (var i = 0; i < outputVal.length; i++) {
       if (i > 0) { delay = 0 }
       if (outputVal[i] !== "") {
-        outputQueue.push({type: "statement", string: outputVal[i], delay: delay})
+        outputQueue.push({type: "statement", string: outputVal[i], delay: delay, chatID: chatID})
       }
     }
   } else {
     if (outputVal !== "") {
-      outputQueue.push({type: "statement", string: outputVal, delay: delay})
+      outputQueue.push({type: "statement", string: outputVal, delay: delay, chatID: chatID})
     }
   }
   checkOutput()
   clearTimeout(idleTimer)
-  idleTimer = setTimeout(function(){returnFromIdle(); }, idleTimeout)
+  idleTimer = setTimeout(function(){returnFromIdle()}, idleTimeout)
 }
 
 const quePriorityOutput = (string, delay) => {
@@ -200,16 +199,16 @@ const checkOutput = () => {
       if (t.type == "question") {
         mode = 'watingresponse'
         awaitResponse = {response: t.response, noResponse: t.noResponse}
-        awaitTimer = setTimeout(function() {noResponse(); }, t.waitTime)
+        awaitTimer = setTimeout(function() {noResponse() }, t.waitTime)
       } else {
         mode = 'queued'
       }
       let naturalDelay = 700 + (t.string.length * 20) + t.delay
-      outputTimer = setTimeout(function() {output(t.string) }, naturalDelay)
+      outputTimer = setTimeout(function() { output(t.string, t.chatID) }, naturalDelay)
     } else {
       mode = 'idle'
       clearTimeout(idleTimer)
-      idleTimer = setTimeout(function(){returnFromIdle(); }, idleTimeout)
+      idleTimer = setTimeout(function(){returnFromIdle() }, idleTimeout)
     }
   }
 }
@@ -237,9 +236,9 @@ const noResponse = () => {
   }
 }
 
-const output = (string) => {
+const output = (string, chatID) => {
   outputTimer = null
-  chatInterface.agentOutput(string)
+  chatInterface.agentOutput(string, chatID)
   if (!awaitTimer) {
     checkOutput()
   }
@@ -352,27 +351,41 @@ const specificStatements = [
   ["i want to kill myself", "call 1-800-273-8255"],
 ]
 
-
+let taskTimerID
+let taskIntervalID
 
 const taskTimer = (string) => {
+  clearTimeout(taskTimerID)
+  clearInterval(taskIntervalID)
+
   let parsedTime = parseDuration(string)
 
   if (parsedTime > 30000) {
     let futureTime = moment().add(parsedTime)
 
 
-    queOutput("Starting timer to end at: " + futureTime.format("h:mma") + "." )
-    queOutput("Timer ending in about " + futureTime.fromNow(true) + "." )
+    queOutput("Starting timer to end at: <strong>" + futureTime.format("h:mma") + "</strong>." )
     queOutput("Now is the time to focus - and write!!! Switch to your writing app now!", 3000 )
 
-    setTimeout(()=>{
-      queOutput("Timer done!!! HOORAY!" )
+    taskIntervalID = setInterval( () => {
+      let timeLeft = futureTime - new Date().getTime()
+      if (timeLeft > 60000) {
+        queOutput("Timer ending in about <strong>" + Math.round(timeLeft/1000/60) + ' minutes.</strong>', 0, 'timer'+futureTime)
+      } else {
+        queOutput("Timer ending in about <strong>" + Math.round(timeLeft/1000) + ' seconds.</strong>', 0, 'timer'+futureTime)
+      }
+    }, 1000)
+
+    taskTimerID = setTimeout(()=>{
+      clearInterval(taskIntervalID)
+      app.dock.bounce('critical')
+      queOutput('<strong>Timer finished!!! HOORAY!</strong>', null, 'timer'+futureTime)
       queOutput("What did you write?", 1000 )
       queOutput("Anything good?", 3000 )
     }, parsedTime)
 
   } else {
-    queQuestion("Should I set a timer for 15 minutes?", {positive: ()=>{taskTimer('15m')}, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", ".."].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000)
+    queQuestion("You can type any time like: <strong>timer 1 hour</strong>. Should I set a timer for something like <strong>15 minutes</strong>?", {positive: ()=>{taskTimer('15m')}, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", ".."].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000)
   }
 
   // set a timer for the future
@@ -438,6 +451,7 @@ var tellHelp = function() {
     "Do you want a <strong>tour</strong>?",
     "Do you want a story <strong>tip</strong>?",
     "Do you want hear a <strong>quote</strong>?",
+    "Do you want me to start a <strong>timer</strong> so you can focus?",
     "I can ask you questions and make suggestions about your story.",
     "It might give you some ideas!",
    ];
