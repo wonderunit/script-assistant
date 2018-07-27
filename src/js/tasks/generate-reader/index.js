@@ -482,7 +482,10 @@ const generate = async (options = {}) => {
 const getSettings = () => {
   let settings = [
     { type: 'title', text: 'Export a reading MP3' },
+    { type: 'description', text: 'Listen to your scenes as a table read from voices. This is very useful for listen to you scenes from a different voice.' },
+    { type: 'spacer' },
     { type: 'description', text: 'Warning: This can take a while to export if doing the first time. Subsequently, it will export faster.' },
+
 
     { id: 'readerRenderTitlePage', label: 'Include Title Page', type: 'checkbox', default: true },
     { id: 'readerReadFast', label: 'Read Fast', type: 'checkbox', default: true },

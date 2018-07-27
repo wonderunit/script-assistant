@@ -238,7 +238,9 @@ const noResponse = () => {
 
 const output = (string, chatID) => {
   outputTimer = null
-  chatInterface.agentOutput(string, chatID)
+  if (string) {
+    chatInterface.agentOutput(string, chatID)
+  }
   if (!awaitTimer) {
     checkOutput()
   }
@@ -370,11 +372,11 @@ const taskTimer = (string) => {
     taskIntervalID = setInterval( () => {
       let timeLeft = futureTime - new Date().getTime()
       if (timeLeft > 60000) {
-        queOutput("Timer ending in about <strong>" + Math.round(timeLeft/1000/60) + ' minutes.</strong>', 0, 'timer'+futureTime)
+        output("Timer ending in about <strong>" + Math.round(timeLeft/1000/60) + ' minutes.</strong>', 'timer'+futureTime)
       } else {
-        queOutput("Timer ending in about <strong>" + Math.round(timeLeft/1000) + ' seconds.</strong>', 0, 'timer'+futureTime)
+        output("Timer ending in about <strong>" + Math.round(timeLeft/1000) + ' seconds.</strong>', 'timer'+futureTime)
       }
-    }, 1000)
+    }, 10000)
 
     taskTimerID = setTimeout(()=>{
       clearInterval(taskIntervalID)
@@ -405,7 +407,7 @@ const showImage = (string) => {
     else {
       let number = Math.round(Math.random()*Math.min(results.length-1,15))
       queOutput('<img src="' + results[number].url + '" class="bigimage" style="width:250px;height:' + Math.round((results[number].height/results[number].width)*250) + 'px;">' )
-      queQuestion("Wanna see another?", {positive: ()=>{showImage('image ' + content)}, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", ".."].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000, 3000)
+      queQuestion("Wanna see another?", {positive: ()=>{showImage('image ' + content)}, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", ".."].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 10000, 3000)
     }
   })
 
@@ -419,12 +421,12 @@ const tellTip = () => {
       ["Sure!", "Absolutely!", "Ok! Here's a story tip...","Alright! If you are stuck maybe this will help","Ok!","","","","","","Ok! ...", "This is a good one!"].randomElement(), 
       getStoryTip()
     ])
-  queQuestion(["Want another?", "One more tip?", "Would you like another?", "Want another tip?"].randomElement(), {positive: tellTip, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!"].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000, 1000*6)
+  queQuestion(["Want another?", "One more tip?", "Would you like another?", "Want another tip?"].randomElement(), {positive: tellTip, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!"].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 20000, 1000*6)
 }
 
 const tellQuote = () => {
   queOutput([["Here's an inspirational quote...","Here's a quote:","Need some inspiration?","Have you heard this before?"].randomElement(), getInspirationalQuote()])
-  queQuestion(["Want another?", "One more quote?", "Would you like another?", "Want another quote?"].randomElement(), {positive: tellQuote, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!"].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 60000, 1000*6)
+  queQuestion(["Want another?", "One more quote?", "Would you like another?", "Want another quote?"].randomElement(), {positive: tellQuote, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!"].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 20000, 1000*6)
 }
 
 const tellJoke = (input) => {
