@@ -213,6 +213,10 @@ button:disabled {
   margin-bottom: 10px;
 }
 
+.tippy-tooltip .spacer {
+  margin-bottom: 15px;
+}
+
 input[type=checkbox] {
   display: none;
 }

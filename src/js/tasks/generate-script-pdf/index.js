@@ -775,9 +775,15 @@ const getSettings = () => {
     { id: 'scriptPageSize', label: 'Page Size', type: 'dropdown', values: [{text: 'Letter', value: 'letter'}, {text: 'A4', value: 'a4'}], default: 1 },
     { id: 'scriptFont', label: 'Font', type: 'dropdown', values: [{text: 'Courier Prime', value: 'prime'}, {text: 'Courier Prime Sans', value: 'sans'}], default: 1 },
     { id: 'scriptType', label: 'Type', type: 'dropdown', values: [{text: 'Normal', value: 'normal'}, {text: 'Margin with thumbnails', value: 'thumbnails'}, {text: 'Margin with blank', value: 'blank'}], default: 1 },
+
+    { type: 'spacer' },
+
     { id: 'scriptIncludeTitlePage', label: 'Include Title Page', type: 'checkbox', default: true },
     { id: 'scriptShowLineNumbers', label: 'Show line numbers', type: 'checkbox', default: true },
     { id: 'scriptIncludeNotes', label: 'Show Notes', type: 'checkbox', default: true },
+
+    { type: 'spacer' },
+
     { id: 'scriptSpecificScenes', label: 'Only render specific scenes (5 or 3-12)', type: 'range', default: true },
   ]
   return settings
