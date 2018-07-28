@@ -9,6 +9,8 @@ const path = require('path')
 const url = require('url')
 const os = require('os')
 
+const autoUpdater = require('./auto-updater')
+
 let mainWindow
 
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = true
@@ -94,6 +96,8 @@ function createWindow () {
   })
 
   mainWindow.once('ready-to-show', () => {
+    if (!isDev) autoUpdater.init()
+
     mainWindow.webContents.send('ready')
     mainWindow.show()
   })
