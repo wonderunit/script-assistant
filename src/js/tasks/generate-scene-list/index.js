@@ -27,7 +27,6 @@ const values = (obj) => {
   return tuples
 }
 
-
 const titleCase = (str) =>  {
   str = str.toLowerCase().split(' ')
   for (var i = 0; i < str.length; i++) {
@@ -35,7 +34,6 @@ const titleCase = (str) =>  {
   }
   return str.join(' ')
 }
-
 
 let progressCallback
 let doneCallback

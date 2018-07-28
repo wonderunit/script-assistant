@@ -87,7 +87,7 @@ button:disabled {
 
 #outputs button {
   flex: 1;
-  height: 150px;
+  height: 130px;
 }
 
 
@@ -192,8 +192,14 @@ button:disabled {
   position: relative;
 }
 
+
+
 .settings-content .row {
   margin-bottom: 5px;
+}
+
+.settings-content :last-child {
+  margin-bottom: 0;
 }
 
 .tippy-tooltip .title {
@@ -205,6 +211,10 @@ button:disabled {
 
 .tippy-tooltip .description {
   margin-bottom: 10px;
+}
+
+.tippy-tooltip .spacer {
+  margin-bottom: 15px;
 }
 
 input[type=checkbox] {
@@ -264,11 +274,17 @@ select {
   margin: 0px;
   box-sizing: border-box;
   border-radius: 5px;
-    -webkit-appearance: none;
+  -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-
 }
+
+.blurb .bigimage {
+  display: block;
+  margin: 0 -5px;
+}
+
+
 
 #outputs i {
   color: rgba(255,255,255,0.3);

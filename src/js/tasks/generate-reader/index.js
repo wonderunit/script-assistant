@@ -38,6 +38,9 @@ const setUpDirectories = () => {
   }
 }
 
+let talkingFast = true
+let renderTitlePage
+
 const renderTTS = (scriptAtom) => {
   let voice
   let audioConfig
@@ -118,8 +121,10 @@ const renderTTS = (scriptAtom) => {
       break
   }
 
-  // slow it down
-  // audioConfig.speakingRate = '1.1'
+  if (!talkingFast) {
+    // slow it down
+    audioConfig.speakingRate = '1.1'
+  }
 
   if (scriptAtom.plainText) { scriptAtom.plainText = scriptAtom.plainText.replace(/MR./g, "Mister") }
 
@@ -167,11 +172,16 @@ const renderTTS = (scriptAtom) => {
   })
 }
 
-const renderScene = async (scriptArray, progressString) => {
+const renderScene = async (scriptArray, progressString, sceneNumber) => {
   return new Promise (async (resolve, reject) => {
     progressCallback({string: progressString, chatID: chatID})
+    let filename
+    if (!renderTitlePage && (sceneNumber == 0)) {
+      filename = path.join(app.getPath('userData'), 'exports', 'scenes', md5(JSON.stringify(scriptArray)+String(talkingFast)+0) + '.mp3')
+    } else {
+      filename = path.join(app.getPath('userData'), 'exports', 'scenes', md5(JSON.stringify(scriptArray)+String(talkingFast)) + '.mp3')
+    }
 
-    let filename = path.join(app.getPath('userData'), 'exports', 'scenes', md5(JSON.stringify(scriptArray)) + '.mp3')
     if (fs.existsSync(filename)) {
       // filename, scene number, duration, pagination
       let duration = await mp3Duration(filename)
@@ -327,6 +337,9 @@ const generate = async (options = {}) => {
   doneCallback = options.doneCallback
   finishedCallback = options.finishedCallback
   chatID = options.chatID
+
+  let settings = options.settings
+
   progressCallback({string: "started", chatID: chatID})
   setUpDirectories()
   inputPath = options.inputPath
@@ -352,15 +365,36 @@ const generate = async (options = {}) => {
   }
   let renderSceneTasks = []
   let fromScene
-  fromScene = 5
-  //fromScene = 80
   let toScene
-  toScene = 6
-  //toScene = scriptArray.length
+
+  if (settings.readerRenderSpecificScenes) {
+    let parse = settings.readerRenderSpecificScenes.split('-')
+    if (parse.length > 1) {
+      fromScene = Number(parse[0])
+      toScene = Number(parse[1])+1
+    } else {
+      fromScene = Number(parse[0])
+      toScene = Number(parse[0])+1
+    }
+  }
+
+  if (settings.readerRenderWholeScript) {
+    fromScene = 0
+    toScene = scriptArray.length
+  }
+
+  if (settings.readerReadFast) {
+    talkingFast = true
+  } else {
+    talkingFast = false
+  }
+
+  renderTitlePage = settings.readerRenderTitlePage
+
   let arrayOfResults = []
   let totalDuration = 0
   for (var i = fromScene; i < toScene; i++) {
-    let result = await renderScene(scriptArray[i], 'Scene ' + i + ' of ' + toScene + '. ')
+    let result = await renderScene(scriptArray[i], 'Scene ' + i + ' of ' + toScene + '. ', i)
     totalDuration += result.duration
     arrayOfResults.push(result)
   }
@@ -368,7 +402,7 @@ const generate = async (options = {}) => {
   let stats = await generateStats.generate(options)
 
   // render title page
-  if (scriptData.title && fromScene == 0) {
+  if (scriptData.title && fromScene == 0 && settings.readerRenderTitlePage) {
     let scene = []
     let author
     for (var i = 0; i < scriptData.title.length; i++) {
@@ -448,12 +482,16 @@ const generate = async (options = {}) => {
 const getSettings = () => {
   let settings = [
     { type: 'title', text: 'Export a reading MP3' },
+    { type: 'description', text: 'Listen to your scenes as a table read from voices. This is very useful for listen to you scenes from a different voice.' },
+    { type: 'spacer' },
     { type: 'description', text: 'Warning: This can take a while to export if doing the first time. Subsequently, it will export faster.' },
 
-    { id: 'renderTitlePage', label: 'Include Title Page', type: 'checkbox', default: true },
-    { id: 'readFast', label: 'Read Fast', type: 'checkbox', default: true },
-    { id: 'renderWholeScript', label: 'Render Whole Script', type: 'checkbox', default: true },
-    { id: 'renderSpecificScenes', label: 'Render Specific Scenes', type: 'range', default: '0-3' },
+
+    { id: 'readerRenderTitlePage', label: 'Include Title Page', type: 'checkbox', default: true },
+    { id: 'readerReadFast', label: 'Read Fast', type: 'checkbox', default: true },
+    { id: 'readerRenderWholeScript', label: 'Render Whole Script', type: 'checkbox', default: true },
+    { type: 'spacer' },
+    { id: 'readerRenderSpecificScenes', label: 'Render Specific Scenes (5 or 0-12)', type: 'range', default: '0-3' },
   ]
   return settings
 }
