@@ -73,6 +73,7 @@ const moment = require('moment')
 const wonderUtils = require('./wonder-utils')
 const storyTips = wonderUtils.shuffle(require('./data/story-tips'))
 const inspirationalQuotes = wonderUtils.shuffle(require('./data/inspirational-quotes'))
+const scriptAwareAgent = require('./script-aware-agent')
 
 const doctorName = 'Script Assistant'
 
@@ -94,6 +95,12 @@ const init = function(chatInterfaceParam) {
   // been a while
   greeting()
   chatInterface = chatInterfaceParam
+
+  console.log(scriptAwareAgent.titleCritique())
+
+  queOutput([scriptAwareAgent.titleCritique()])
+
+
   queOutput([
     [["Here's a story tip...","If you are stuck maybe this will help","Need a tip?","I just heard this tip:"].randomElement(), getStoryTip()], 
     [["Here's an inspirational quote...","Here's a quote:","Need some inspiration?","Have you heard this before?"].randomElement(), getInspirationalQuote()]
@@ -942,8 +949,13 @@ const clear = () => {
   clearQueue()
 }
 
+const setStats = (stats) => {
+  scriptAwareAgent.update(stats)
+}
+
 module.exports = {
   init,
   input,
-  clear
+  clear,
+  setStats
 }
