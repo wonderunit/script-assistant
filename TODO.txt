@@ -1,0 +1,22 @@
+TODO
+
+redo kerning on specific character combinations
+
+design icons for button - dont use css
+
+welcome content aware
+
+what do you think? content aware
+
+click on character to post a quote
+
+click on a scene to start playback of script
+
+hook up outline settings
+
+outline should include a timeline
+
+outline should have an option for a scene list / vertical timeline
+
+hook up script settings
+

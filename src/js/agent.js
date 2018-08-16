@@ -100,6 +100,8 @@ const init = function(chatInterfaceParam) {
 
   queOutput([scriptAwareAgent.titleCritique()])
 
+  scriptAwareAgent.whatIThink()
+
 
   queOutput([
     [["Here's a story tip...","If you are stuck maybe this will help","Need a tip?","I just heard this tip:"].randomElement(), getStoryTip()], 
