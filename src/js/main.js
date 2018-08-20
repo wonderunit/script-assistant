@@ -38,11 +38,40 @@ function createWindow () {
     }
   })
   mainWindow.loadURL(url.format({
-    //pathname: path.join(__dirname, '..', 'main-window.html'),
-    pathname: path.join(__dirname, '..', 'test-window.html'),
+    pathname: path.join(__dirname, '..', 'main-window.html'),
     protocol: 'file:',
     slashes: true
   }))
+
+  // mainWindow = new BrowserWindow({
+  //   width: 1500, 
+  //   height: 900, 
+  //   minWidth: 1200, 
+  //   minHeight: 715, 
+  //   x: 0,
+  //   y: 0,
+  //   show: false,
+  //   center: true,
+  //   frame: true,
+  //   acceptFirstMouse: true,
+  //   simpleFullscreen: true,
+  //   webPreferences: {
+  //     plugins: true,
+  //     webSecurity: false,
+  //     allowRunningInsecureContent: true,
+  //     experimentalFeatures: true,
+  //     backgroundThrottling: false,
+  //   }
+  // })
+  // mainWindow.loadURL(url.format({
+  //   //pathname: path.join(__dirname, '..', 'main-window.html'),
+  //   pathname: path.join(__dirname, '..', 'test-window.html'),
+  //   protocol: 'file:',
+  //   slashes: true
+  // }))
+
+
+
   mainWindow.on('closed', function () {
     mainWindow = null
   })

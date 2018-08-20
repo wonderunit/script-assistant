@@ -29,3 +29,16 @@
   src: url('../fonts/wonder-unit-sans/WonderUnitSans-Thin.woff2') format('woff2');
   font-weight: 100;
 }
+
+
+
+@font-face {
+  font-family: 'courier-prime-sans';
+  src: url('../fonts/courier-prime-sans/Courier Prime Sans.ttf') format('opentype');
+}
+
+@font-face {
+  font-family: 'courier-prime-sans';
+  src: url('../fonts/courier-prime-sans/Courier Prime Sans Bold.ttf') format('opentype');
+  font-weight: bold;
+}

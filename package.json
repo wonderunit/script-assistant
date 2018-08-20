@@ -69,7 +69,7 @@
     }
   },
   "devDependencies": {
-    "electron": "v2.0.5",
+    "electron": "2.0.7",
     "electron-builder": "20.22.0"
   },
   "dependencies": {
@@ -82,7 +82,7 @@
     "electron-util": "^0.9.0",
     "execa": "^0.10.0",
     "g-i-s": "^2.1.2",
-    "grpc": "^1.13.1",
+    "grpc": "^1.14.1",
     "md5": "^2.2.1",
     "moment": "^2.22.1",
     "mp3-duration": "^1.1.0",

@@ -1,5 +1,18 @@
 TODO
 
+CODEMIRROR
+  load fountain into editor
+  spellchecker
+  markdown bold / formatting
+  find character and bold
+  change margins for dialogue
+  color notes
+  color params
+  autocomplete first char for: INT. / EXT. / CHARACTER NAMES
+  find
+  look up line to format: SCENE.PARAGRAPH 0. 1 none for notes/etc
+  color title
+
 redo kerning on specific character combinations
 
 design icons for button - dont use css
@@ -19,4 +32,3 @@ outline should include a timeline
 outline should have an option for a scene list / vertical timeline
 
 hook up script settings
-
