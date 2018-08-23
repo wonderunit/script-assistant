@@ -32,3 +32,19 @@ outline should include a timeline
 outline should have an option for a scene list / vertical timeline
 
 hook up script settings
+
+scene cuepoints on audio export
+
+export outline of synopsis
+
+export table read of synopsis
+
+export script with title image
+
+parse rough todo and complete out of script for output to speadsheet
+
+editor to follow audio while it's playing
+
+show scenes that need to be done on the timeline
+
+on save, dirty the buttons 
