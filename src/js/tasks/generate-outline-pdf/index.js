@@ -3,10 +3,14 @@ const path = require('path')
 const pdfDocument = require('pdfkit')
 const moment = require('moment')
 const fountain = require('../../vendor/fountain')
+const fountainParse = require('../fountain-parse')
 
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
-  let scriptData = fountain.parse(contents, true).tokens
+  let scriptData = fountainParse.parse(contents)
+
+
+
   let title
   let author
   let chunks = []
@@ -15,45 +19,50 @@ const parseScript = (filepath) => {
   let mode = null
   let currentScene = 0
 
-  for (var i = 0; i < scriptData.length; i++) {
-    if (scriptData[i].type == "title") {
-      title = scriptData[i].text.replace(/<(?:.|\n)*?>/gm, '')
+  for (let i = 0; i < scriptData.title.length; i++) {
+    if (scriptData.title[i].type == "title") {
+      title = scriptData.title[i].plainText.replace(/<(?:.|\n)*?>/gm, '')
     }
-    if (scriptData[i].type == "author") {
-      author = scriptData[i].text.replace(/<(?:.|\n)*?>/gm, '')
+    if (scriptData.title[i].type == "author") {
+      author = scriptData.title[i].plainText.replace(/<(?:.|\n)*?>/gm, '')
     }
-    if (mode == "scene" && !sceneHasImage && sequence.length > 0 && scriptData[i].type !== "property") {
+  }
+
+  for (var i = 0; i < scriptData.script.length; i++) {
+    if (mode == "scene" && !sceneHasImage && sequence.length > 0 && scriptData.script[i].type !== "property") {
       sceneHasImage = true
       sequence.push({type: "image", text: 'blank'})
     }
-    if (scriptData[i].type == "property") {
-      if (scriptData[i].text.split(':')[0].trim() == "image") {
+    if (scriptData.script[i].type == "property") {
+      if (scriptData.script[i].text.split(':')[0].trim() == "image") {
         sceneHasImage = true
-        sequence.push({type: "image", text: scriptData[i].text.split(':')[1].trim()})
+        let filename = scriptData.script[i].text.split(':')[1].trim()
+        let imagesrc = path.join(path.dirname(filepath),filename.toLowerCase())
+        sequence.push({type: "image", text: imagesrc})
       }
     }
-    if (scriptData[i].type == "section" && scriptData[i].depth == 1) {
+    if (scriptData.script[i].type == "section" && scriptData.script[i].depth == 1) {
       if (sequence.length > 0) {
         chunks.push(sequence)
       }
       sequence = []
-      chunks.push([{type: "act", text: scriptData[i].text}])
+      chunks.push([{type: "act", text: scriptData.script[i].text}])
     }
-    if (scriptData[i].type == "section" && scriptData[i].depth == 2) {
+    if (scriptData.script[i].type == "section" && scriptData.script[i].depth == 2) {
       if (sequence.length > 0) {
         chunks.push(sequence)
       }
       sequence = []
-      sequence.push({type: "title", text: scriptData[i].text})
+      sequence.push({type: "title", text: scriptData.script[i].text})
     }
-    if (scriptData[i].type == "scene_heading" && scriptData[i].text !== 'BLACK') {
+    if (scriptData.script[i].type == "scene_heading" && scriptData.script[i].text !== 'BLACK') {
       currentScene++
       mode = 'scene'
       sceneHasImage = false
-      sequence.push({type: "scene", text: scriptData[i].text, number: currentScene})
+      sequence.push({type: "scene", text: scriptData.script[i].text, number: currentScene})
     }
-    if (scriptData[i].type == "note") {
-      sequence.push({type: "note", text: scriptData[i].text})
+    if (scriptData.script[i].type == "note") {
+      sequence.push({type: "note", text: scriptData.script[i].text})
     }
   }
   chunks.push(sequence)
@@ -123,6 +132,10 @@ const renderChunk = (chunk, doc, width, x, y, render) => {
     }
     if (chunk[i].type == "image") {
       if (render) {
+        console.log(chunk[i].text)
+        if (chunk[i].text !== 'blank') {
+          doc.image(chunk[i].text, x, y+ verticalCursor, {width: width})
+        }
         doc.rect(x,y+ verticalCursor,width,(width*(1/2.35)))
         doc.lineWidth(.1).stroke()
       }
@@ -163,7 +176,7 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
   let columnSpacing = (documentSize[0]/columnCount)*0.15
   let verticalSpacing = (documentSize[0]/columnCount)*0.08
   for (var i = 0; i < chunks.length; i++) {
-    let chunkWidth = Math.round((documentSize[0]- ((actCount-1)*actSpacing) - ((columnCount-1)*columnSpacing) - margin[0] -margin[2])/columnCount) 
+    let chunkWidth = Math.round((documentSize[0]- ((actCount-1)*actSpacing) - ((columnCount-1)*columnSpacing) - margin[0] -margin[2])/columnCount)
     if (chunks[i][0].type == "act" && i !== 0) {
       if (!lastActStart) { lastActStart = margin[0] }
       if (render) {
