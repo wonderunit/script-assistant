@@ -10,7 +10,7 @@
     "dist:win": "build -w",
     "dist:linux": "build -l",
     "dist": "build -mwl",
-    "postinstall": "npm install grpc --runtime=electron --target=2.0.5",
+    "postinstall": "npm install grpc --runtime=electron --target=3.0.4",
     "reveal:data": "open ~/Library/Application\\ Support/Script\\ Assistant"
   },
   "repository": {
@@ -69,7 +69,7 @@
     }
   },
   "devDependencies": {
-    "electron": "2.0.7",
+    "electron": "3.0.4",
     "electron-builder": "20.22.0"
   },
   "dependencies": {
@@ -82,7 +82,7 @@
     "electron-util": "^0.9.0",
     "execa": "^0.10.0",
     "g-i-s": "^2.1.2",
-    "grpc": "^1.14.1",
+    "grpc": "^1.15.1",
     "md5": "^2.2.1",
     "moment": "^2.22.1",
     "mp3-duration": "^1.1.0",
