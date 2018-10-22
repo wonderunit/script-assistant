@@ -2,14 +2,13 @@ const fs = require('fs')
 const path = require('path')
 const pdfDocument = require('pdfkit')
 const moment = require('moment')
-const fountain = require('../../vendor/fountain')
 const fountainParse = require('../fountain-parse')
 
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
   let scriptData = fountainParse.parse(contents)
 
-
+  console.log(scriptData)
 
   let title
   let author

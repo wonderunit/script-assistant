@@ -43,6 +43,8 @@ let chatID
 const generate = async (options = {}) => {
   let scriptData = parseScript(options.inputPath)
 
+  console.log(scriptData)
+
   progressCallback = options.progressCallback
   doneCallback = options.doneCallback
   finishedCallback = options.finishedCallback
@@ -59,8 +61,9 @@ const generate = async (options = {}) => {
   let duration = 0
   let currentAct = ''
   let currentSection = ''
-  let noteCount = 0 
+  let noteCount = 0
   let currentScene
+  let progress
 
   for (var i = 0; i < scriptData.script.length; i++) {
     if (scriptData.script[i].plainText) {
@@ -77,10 +80,14 @@ const generate = async (options = {}) => {
           if (currentScene) {
             currentScene.noteCount = noteCount
             currentScene.duration = duration
+            if (progress) {
+              currentScene.progress = progress
+            }
             scenes.push(currentScene)
           }
+          progress = null
           duration = 2000
-          noteCount = 0 
+          noteCount = 0
           currentScene = {currentAct: currentAct, currentSection: currentSection, slugline: scriptData.script[i].plainText}
           break
         case 'character':
@@ -102,6 +109,15 @@ const generate = async (options = {}) => {
             currentSection = scriptData.script[i].plainText
           }
           break
+        case 'property':
+          if (scriptData.script[i].plainText.split(':')[0].trim() == 'progress') {
+            try {
+              progress = JSON.parse(scriptData.script[i].plainText.split(':').slice(1).join(':').replace(/\'/g, '"'))
+            } catch {
+              progress = null
+            }
+
+          }
         default:
       }
     }
@@ -140,7 +156,10 @@ const generate = async (options = {}) => {
   if (settings.includeComplete) {
     csvLine.push('COMPLETE')
   }
-  
+  if (settings.includeGrade) {
+    csvLine.push('GRADE')
+  }
+
   csvText += csvLine.join(',') + `\n`
 
   for (var i = 0; i < scenes.length; i++) {
@@ -163,13 +182,33 @@ const generate = async (options = {}) => {
       csvLine.push(Math.round(scenes[i].duration/1000))
     }
     if (settings.includeTodo) {
-      csvLine.push('')
+      if (scenes[i].progress) {
+        if (scenes[i].progress['todo']) { csvLine.push(scenes[i].progress['todo']) } else { csvLine.push('')}
+      } else {
+        csvLine.push('')
+      }
     }
     if (settings.includeRough) {
-      csvLine.push('')
+      if (scenes[i].progress) {
+        if (scenes[i].progress['rough']) { csvLine.push(scenes[i].progress['rough']) } else { csvLine.push('')}
+      } else {
+        csvLine.push('')
+      }
     }
     if (settings.includeComplete) {
-      csvLine.push('')
+      if (scenes[i].progress) {
+        if (scenes[i].progress['complete']) { csvLine.push(scenes[i].progress['complete']) } else { csvLine.push('')}
+      } else {
+        csvLine.push('')
+      }
+    }
+
+    if (settings.includeGrade) {
+      if (scenes[i].progress) {
+        if (scenes[i].progress['grade']) { csvLine.push(scenes[i].progress['grade'].toUpperCase()) } else { csvLine.push('')}
+      } else {
+        csvLine.push('')
+      }
     }
     csvText += csvLine.join(',') + `\n`
   }
@@ -180,11 +219,11 @@ const generate = async (options = {}) => {
     if(err) {
       doneCallback({string: "error", chatID: chatID})
       finishedCallback()
-      return 
+      return
     }
     doneCallback({string: "done!", chatID: chatID})
     finishedCallback()
-  }) 
+  })
 }
 
 const parseScript = (filepath) => {
@@ -205,6 +244,7 @@ const getSettings = () => {
     { id: 'includeTodo', label: 'Include TODO', type: 'checkbox', default: false },
     { id: 'includeRough', label: 'Include ROUGH', type: 'checkbox', default: false },
     { id: 'includeComplete', label: 'Include COMPLETE', type: 'checkbox', default: false },
+    { id: 'includeGrade', label: 'Include GRADE', type: 'checkbox', default: false },
   ]
   return settings
 }
