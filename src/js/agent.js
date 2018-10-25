@@ -96,15 +96,15 @@ const init = function(chatInterfaceParam) {
   greeting()
   chatInterface = chatInterfaceParam
 
-  console.log(scriptAwareAgent.titleCritique())
+  // console.log(scriptAwareAgent.titleCritique())
 
-  queOutput([scriptAwareAgent.titleCritique()])
+  // queOutput([scriptAwareAgent.titleCritique()])
 
-  scriptAwareAgent.whatIThink()
+  // scriptAwareAgent.whatIThink()
 
 
   queOutput([
-    [["Here's a story tip...","If you are stuck maybe this will help","Need a tip?","I just heard this tip:"].randomElement(), getStoryTip()], 
+    [["Here's a story tip...","If you are stuck maybe this will help","Need a tip?","I just heard this tip:"].randomElement(), getStoryTip()],
     [["Here's an inspirational quote...","Here's a quote:","Need some inspiration?","Have you heard this before?"].randomElement(), getInspirationalQuote()]
   ].randomElement(), 2*60*1000)
 }
@@ -134,9 +134,9 @@ const greeting = () => {
   } else if (hour > 17) {
     queOutput('Good evening!')
     queOutput([
-      "When it gets dark out is when I do my best work.", 
+      "When it gets dark out is when I do my best work.",
       ["I was just about to sleep!", "But now I'm super awake!!!"],
-      "You're burning the midnight oil!", 
+      "You're burning the midnight oil!",
       "",].randomElement())
   } else if (hour == 12) {
     queOutput('Lunch time!')
@@ -225,7 +225,7 @@ const checkOutput = () => {
 const returnFromIdle = () => {
   idleTimer = null
   queOutput([
-    [["Here's a story tip...","If you are stuck maybe this will help","Need a tip?","I just heard this tip:"].randomElement(), getStoryTip()], 
+    [["Here's a story tip...","If you are stuck maybe this will help","Need a tip?","I just heard this tip:"].randomElement(), getStoryTip()],
     [["Here's an inspirational quote...","Here's a quote:","Need some inspiration?","Have you heard this before?"].randomElement(), getInspirationalQuote()]
   ].randomElement())
 }
@@ -400,7 +400,7 @@ const taskTimer = (string) => {
   }
 
   // set a timer for the future
-  // set an interval every second to update 
+  // set an interval every second to update
 }
 
 const showImage = (string) => {
@@ -427,7 +427,7 @@ const showImage = (string) => {
 const tellTip = () => {
   queOutput(
     [
-      ["Sure!", "Absolutely!", "Ok! Here's a story tip...","Alright! If you are stuck maybe this will help","Ok!","","","","","","Ok! ...", "This is a good one!"].randomElement(), 
+      ["Sure!", "Absolutely!", "Ok! Here's a story tip...","Alright! If you are stuck maybe this will help","Ok!","","","","","","Ok! ...", "This is a good one!"].randomElement(),
       getStoryTip()
     ])
   queQuestion(["Want another?", "One more tip?", "Would you like another?", "Want another tip?"].randomElement(), {positive: tellTip, negative: ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!"].randomElement()}, ["ok. you can ask me again anytime.", "no problem.", "glad i could help!", "alright!", "", ""].randomElement(), 20000, 1000*6)

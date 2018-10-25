@@ -37,7 +37,6 @@ const titleCase = (str) =>  {
 
 const generate = async (options = {}) => {
   let scriptData = parseScript(options.inputPath)
-
   let filestats = fs.statSync(options.inputPath)
 
   // title
@@ -124,10 +123,10 @@ const generate = async (options = {}) => {
     title: title,
     pageCount: pages.pageCount,
     wordCount: wordCount,
-    sceneCount: sceneCount, 
+    sceneCount: sceneCount,
     noteCount: noteCount,
     duration: duration,
-    characters: sortedValues(characters), 
+    characters: sortedValues(characters),
     locations: sortedValues(locations),
     modifiedAt: filestats.mtime,
     scriptData: scriptData,
@@ -137,13 +136,14 @@ const generate = async (options = {}) => {
 }
 
 const parseScript = (filepath) => {
-  let contents = fs.readFileSync(filepath, "utf8");
-  let scriptData = fountainParse.parse(contents)
+  let contents = fs.readFileSync(filepath, "utf8")
+  let scriptData = fountainParse.parse(contents, filepath)
   return scriptData
 }
 
 const diff = (stats1, stats2) => {
   let diffStats = {}
+
   if (stats1 && stats2) {
     let changeMessage = []
 
@@ -156,15 +156,17 @@ const diff = (stats1, stats2) => {
     let sceneName = ''
 
     for (var i = 0; i < stats1.scriptData.script.length; i++) {
-      if (stats1.scriptData.script[i].text && stats2.scriptData.script[i].text) {
-        if (stats1.scriptData.script[i].type == 'scene_heading') {
-          currentScene++
-          sceneName = stats1.scriptData.script[i].plainText
-        }
-        if (stats1.scriptData.script[i].text !== stats2.scriptData.script[i].text) {
-          changeMessage.push('Edited Scene <strong>' + currentScene + ' - ' + sceneName + '</strong> around, "' + stats1.scriptData.script[i].plainText.substring(0,50) + '..."')
-          console.log('script', currentScene, sceneName, stats1.scriptData.script[i],  stats2.scriptData.script[i])
-          break
+      if (stats1.scriptData.script[i] && stats2.scriptData.script[i]) {
+        if (stats1.scriptData.script[i].text && stats2.scriptData.script[i].text) {
+          if (stats1.scriptData.script[i].type == 'scene_heading') {
+            currentScene++
+            sceneName = stats1.scriptData.script[i].plainText
+          }
+          if (stats1.scriptData.script[i].text !== stats2.scriptData.script[i].text) {
+            changeMessage.push('Edited Scene <strong>' + currentScene + ' - ' + sceneName + '</strong> around, "' + stats1.scriptData.script[i].plainText.substring(0,50) + '..."')
+            console.log('script', currentScene, sceneName, stats1.scriptData.script[i],  stats2.scriptData.script[i])
+            break
+          }
         }
       }
     }
@@ -233,7 +235,7 @@ const diff = (stats1, stats2) => {
 
     if (Math.round(stats1.duration/1000/60) !== Math.round(stats2.duration/1000/60)) {
       console.log('duration', stats1.duration, stats2.duration)
-      
+
       let diff = stats1.duration - stats2.duration
       let verb
       if (diff > 0) {

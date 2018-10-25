@@ -6,7 +6,7 @@ const fountainParse = require('../fountain-parse')
 
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
-  let scriptData = fountainParse.parse(contents)
+  let scriptData = fountainParse.parse(contents, filepath)
 
   console.log(scriptData)
 

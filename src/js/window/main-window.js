@@ -6,6 +6,7 @@ const path = require('path')
 const moment = require('moment')
 const tippy = require('tippy.js')
 const electronUtil = require('electron-util')
+const unhandled = require('electron-unhandled')
 
 const generateStats = require('../tasks/generate-stats')
 const generateScriptPdf = require('../tasks/generate-script-pdf')
@@ -66,10 +67,10 @@ const renderTimeline = (sceneList) => {
   let timelineDom = document.querySelector('#timeline')
   let timelineHTML = []
   let colors = [
-    '#5a5a5a', 
-    '#00bbe3', 
-    '#167fb2', 
-    '#ffeb97', 
+    '#5a5a5a',
+    '#00bbe3',
+    '#167fb2',
+    '#ffeb97',
     '#fbbbff'
   ]
   let currentAct = ''
@@ -125,10 +126,11 @@ const onLinkedFileChange = async (eventType, filepath, stats) => {
 }
 
 const init = async () => {
+  unhandled()
   electronUtil.disableZoom()
 
   prefs.init(path.join(app.getPath('userData'), 'prefs.json'))
-  
+
   console.log('%cScript Assistant v' + prefs.get('version'), "color: blue; font-size: 20px;")
   console.log('Most Recent Script Path:', prefs.get('lastScriptPath'))
 
@@ -142,7 +144,7 @@ const init = async () => {
   let watcher = chokidar.watch(null, {
     disableGlobbing: true // treat file strings as literal file names
   })
-  
+
   watcher.on('all', onLinkedFileChange)
 
   watcher.add(scriptPath)
@@ -207,6 +209,8 @@ const init = async () => {
       shell.showItemInFolder(path.join(outputDirectory, 'output.mp3'))
     }
   })
+
+  console.log(this)
 
   generatorButton.createButton('#generateSceneList', generateSceneList, prefs, {
     inputPath: scriptPath,

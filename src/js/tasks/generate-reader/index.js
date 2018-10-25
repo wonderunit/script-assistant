@@ -164,7 +164,7 @@ const renderTTS = (scriptAtom) => {
               () => resolve({filename: filename, duration: duration, type: scriptAtom.type, plainText: scriptAtom.plainText}),
               5
             )
-            
+
           })
         })
       })
@@ -285,10 +285,13 @@ const renderScene = async (scriptArray, progressString, sceneNumber) => {
       args.push("'" + filter.join('')+ mixstring+ "'")
 
       args = args.concat(['-map', '[mixout]a', '-ac', '2', '-b:a', '192k', '-ar', '44100', '-y', '-t', ((currentOffset/1000)+1), '"' + filename + '"'])
-      
+
       let totalDurationInSeconds = currentOffset / 1000
 
       child = execa('"' + ffmpegPath + '"', args, {shell: true})
+
+      console.log(args)
+
       const timeRegex = /time=(\d\d:\d\d:\d\d.\d\d)/gm
       child.stderr.on('data', data => {
         let m = data.toString().match(timeRegex)
@@ -298,7 +301,7 @@ const renderScene = async (scriptArray, progressString, sceneNumber) => {
           let parts = m.split(':')
 
           let seconds = (Number(parts[0]) * 60 * 60) + (Number(parts[1]) * 60) + (Number(parts[2]))
-      
+
           progressCallback({string: progressString + ' Merging scene: ' + Math.round(seconds/totalDurationInSeconds*100) + '%', chatID: chatID})
         }
       })
@@ -344,7 +347,7 @@ const generate = async (options = {}) => {
   setUpDirectories()
   inputPath = options.inputPath
   let contents = fs.readFileSync(options.inputPath, "utf8");
-  let scriptData = fountainParse.parse(contents)
+  let scriptData = fountainParse.parse(contents, options.inputPath)
   let scriptArray = [[]]
   let currentScene = 0
   for (var i = 0; i < scriptData.script.length; i++) {

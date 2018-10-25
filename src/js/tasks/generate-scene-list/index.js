@@ -126,8 +126,13 @@ const generate = async (options = {}) => {
   if (currentScene) {
     currentScene.noteCount = noteCount
     currentScene.duration = duration
+    if (progress) {
+      currentScene.progress = progress
+    }
     scenes.push(currentScene)
   }
+
+  console.log(scenes)
 
   let settings = options.settings
 
@@ -227,8 +232,8 @@ const generate = async (options = {}) => {
 }
 
 const parseScript = (filepath) => {
-  let contents = fs.readFileSync(filepath, "utf8");
-  let scriptData = fountainParse.parse(contents)
+  let contents = fs.readFileSync(filepath, "utf8")
+  let scriptData = fountainParse.parse(contents, filepath)
   return scriptData
 }
 

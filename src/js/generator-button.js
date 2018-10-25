@@ -52,7 +52,15 @@ const createButton = (domName, generator, prefs, options) => {
               settingsHTML.push('<input type="text" id="' + settings[i].id + '"/>')
             }
             break
-        }
+          case 'string':
+            settingsHTML.push('<label for="' + settings[i].id + '">' + settings[i].label + ':</label>')
+            if (value) {
+              settingsHTML.push('<input type="text" id="' + settings[i].id + '" value="' + value + '"/>')
+            } else {
+              settingsHTML.push('<input type="text" id="' + settings[i].id + '"/>')
+            }
+            break
+          }
         break
     }
     settingsHTML.push('</div>')

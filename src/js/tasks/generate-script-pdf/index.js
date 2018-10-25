@@ -4,6 +4,8 @@ const fs = require('fs')
 const path = require('path')
 const pdfDocument = require('pdfkit')
 const moment = require('moment')
+const Jimp = require('jimp')
+
 const fountainParse = require('../fountain-parse')
 
 let progressCallback
@@ -42,6 +44,8 @@ const generate = async (options = {}) => {
     titlePage: true,
   }
 
+  console.log(options)
+
   let notesScriptOptions = {
     pageCount: data.pageCount,
     scale: 0.8,
@@ -49,11 +53,16 @@ const generate = async (options = {}) => {
     yOffset: 60,
     scriptHeader: false,
     scriptFooter: false,
-    showLineNumbers: true,
-    showNotes: true,
+    showLineNumbers: options.settings.scriptShowLineNumbers,
+    showNotes: options.settings.scriptIncludeNotes,
     showOutside: true,
-    titlePage: true,
+    titlePage: options.settings.scriptIncludeTitlePage,
+    inputPath: options.inputPath,
+    scriptWatermarkString: options.settings.scriptWatermarkString,
   }
+
+  console.log(notesScriptOptions)
+
   setTimeout(()=>{renderScript(scriptData, true, options.outputPath, notesScriptOptions)},1)
 }
 
@@ -64,7 +73,7 @@ const getPages = async (options = {}) => {
 
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
-  let scriptData = fountainParse.parse(contents)
+  let scriptData = fountainParse.parse(contents, filepath)
   return scriptData
 }
 
@@ -72,19 +81,20 @@ let sceneList = []
 let sceneListDuration = 0
 let sceneListCurrentAct = ''
 let sceneListCurrentSection = ''
-let sceneListNoteCount = 0 
-let sceneListSceneNumber = 0 
+let sceneListNoteCount = 0
+let sceneListSceneNumber = 0
 let sceneListCurrentScene
+let imageHash = {}
 
 const renderScript = async (scriptData, render, outputFilePath, options) => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
 
     sceneList = []
     sceneListDuration = 0
     sceneListCurrentAct
     sceneListCurrentSection
-    sceneListNoteCount = 0 
-    sceneListSceneNumber = 0 
+    sceneListNoteCount = 0
+    sceneListSceneNumber = 0
     sceneListCurrentScene = null
 
 
@@ -114,16 +124,80 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
     let scriptFooter = options.scriptFooter || false
     let pageCount = options.pageCount || ''
     let showNotes = options.showNotes || false
-    let showLineNumbers = options.showLineNumbers || false
+    let showLineNumbers = options.showLineNumbers
     let showOutside = options.showOutside || false
-    let titlePage = options.titlePage || true
+    let titlePage = options.titlePage
     let headerString = '%p.'
     let footerString = ''
     let currentSection = []
     let pageNotes = []
+    let pageImages = []
     let yCursor = (marginTop*scale)
     let currentParagraph = 0
+    let watermarkText = options.scriptWatermarkString || ''
+
+    let leftM = ((8.5*72)-10)*scale + xOffset
+    let widthM = (8.5*72)-leftM - 30
+
+    if (render) {
+      for (let i = 0; i < scriptData.title.length; i++) {
+        if (scriptData.title[i].type == 'property') {
+          let prop = scriptData.title[i].formattedText.split(': ')
+          if (prop[0].toLowerCase() == 'image') {
+            if (options.inputPath) {
+              if (!imageHash['titleImage']) {
+                let filename = prop[1].trim()
+                let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
+                let value = await Jimp.read(imagesrc)
+                let image = await value.resize(Math.round((documentSize[0]-72)*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
+                imageHash['titleImage'] = image
+              }
+            }
+          }
+        }
+      }
+      for (let i = 0; i < scriptData.script.length; i++) {
+        if (scriptData.script[i].type == 'property') {
+          let prop = scriptData.script[i].formattedText.split(': ')
+          if (prop[0].toLowerCase() == 'image') {
+            if (options.inputPath) {
+              let filename = prop[1].trim()
+              let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
+              if (!imageHash[imagesrc]) {
+                let value = await Jimp.read(imagesrc)
+                let image = await value.resize(Math.round(widthM*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
+                imageHash[imagesrc] = image
+              }
+            }
+          }
+        }
+      }
+    }
+
     let currentScene = 0
+
+    let renderWatermark = (number) => {
+      if (watermarkText && render) {
+        doc.fontSize(12*scale)
+        doc.save()
+        doc.fontSize(35)
+        doc.font('extrabold')
+        let string = watermarkText
+        doc.lineWidth(0.2)
+        doc.strokeColor('#444')
+        doc.dash(0.3, {space: 1.6})
+        let widthOfString = doc.widthOfString(string)
+        doc.fontSize(35 * (((documentSize[0]-72)*scale*0.8)/widthOfString))
+        doc.translate((72/2)+xOffset, ((documentSize[0]-72)*scale*.65)+yOffset)
+        doc.rotate(20, {origin: [150, 70]})
+        doc.text(string, 0, 0, {width: ((8.5*72)-72)*scale, lineBreak: false, lineGap: 0, align: 'center', stroke: true})
+        doc.undash()
+        doc.restore()
+        doc.fontSize(12*scale)
+      }
+    }
+
+
 
     let renderHeader = (number) => {
       if (scriptHeader && render) {
@@ -131,7 +205,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         doc.font('courier-prime-sans')
         let string = headerString
         string = string.replace('%p', pageNumber)
-        string = string.replace('%pp', (pageCount+1))
+        string = string.replace('%pp', (pageCount))
         doc.text(string, 0+xOffset, (41*scale)+yOffset, {width: ((8.5*72)-72)*scale, lineBreak: false, lineGap: 0, align: 'right'})
       }
     }
@@ -143,7 +217,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         doc.fillColor('#777')
         let string = footerString
         string = string.replace('%p', pageNumber)
-        string = string.replace('%pp', (pageCount+1))
+        string = string.replace('%pp', (pageCount))
         renderFormattedText(string, 0+xOffset, ((documentSize[1]-50)*scale)+yOffset, ((8.5*72))*scale, 'center')
         doc.fillColor('black')
       }
@@ -174,40 +248,45 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         currentParagraph++
       }
     }
-    
-    let renderOutside = () => {
+
+    let renderOutside = async () => {
       if (showOutside && render) {
         doc.save()
         let currentTop = 35
         let left = ((8.5*72)-10)*scale + xOffset
         let width = (8.5*72)-left - 30
+
         for (let i = 0; i < currentSection.length; i++) {
           let tHeight
-          currentSection[i] = currentSection[i].toUpperCase()
-          if (i == 0) {
-            doc.font('regular')
-            doc.fontSize(7)
-            tHeight = doc.heightOfString(currentSection[i], {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-            doc.text(currentSection[i], left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+
+          if (currentSection[i]) {
+            currentSection[i] = currentSection[i].toUpperCase()
+            if (i == 0) {
+              doc.font('regular')
+              doc.fontSize(7)
+              tHeight = doc.heightOfString(currentSection[i], {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+              doc.text(currentSection[i], left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+            }
+            if (i == 1) {
+              doc.font('extrabold')
+              doc.fontSize(10)
+              tHeight = doc.heightOfString(currentSection[i], {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+              doc.text(currentSection[i], left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+            }
+            if (i == 2) {
+              doc.font('regular')
+              doc.fontSize(7)
+              tHeight = doc.heightOfString(currentSection[i], {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+              doc.text(currentSection[i], left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+            }
+            currentTop += tHeight + 5
+
           }
-          if (i == 1) {
-            doc.font('extrabold')
-            doc.fontSize(10)
-            tHeight = doc.heightOfString(currentSection[i], {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-            doc.text(currentSection[i], left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-          }
-          if (i == 2) {
-            doc.font('regular')
-            doc.fontSize(7)
-            tHeight = doc.heightOfString(currentSection[i], {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-            doc.text(currentSection[i], left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-          }
-          currentTop += tHeight + 5
         }
         currentTop += 5
         doc.save()
         doc.roundedRect(left, currentTop, width, 4, 2).clip()
-        let per = (pageNumber-1)/pageCount
+        let per = (pageNumber-1)/Math.max(pageCount-1,1)
         doc.fillOpacity(0.3)
         doc.rect(left, currentTop, width*per, 4)
         doc.fill()
@@ -225,37 +304,52 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         doc.font('thin')
         doc.fontSize(5)
         tHeight = doc.heightOfString('xxx', {width: left-10, lineBreak: false, lineGap: 0, align: 'left'})
-        doc.text(pageNumber + ' / ' + (pageCount+1) + '', left, currentTop, {width: width, lineBreak: false, lineGap: 0, align: 'left'})
+        doc.text(pageNumber + ' / ' + (pageCount) + '', left, currentTop, {width: width, lineBreak: false, lineGap: 0, align: 'left'})
         currentTop += tHeight
         currentTop += 30
-        for (let i = 0; i < pageNotes.length; i++) {
-          doc.font('thin')
-          doc.fontSize(8)
-          tHeight = doc.heightOfString(pageNotes[i].text, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-          doc.text(pageNotes[i].text, left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-          doc.lineWidth(0.3)
-          doc.moveTo(0, pageNotes[i].yLoc)
-          doc.lineTo((8*72)*scale+xOffset-10, pageNotes[i].yLoc)
-          doc.lineTo(left-10, currentTop+3.5)
-          doc.lineTo(left-4, currentTop+3.5)
-          doc.dash(2, {space: 1})
-          doc.stroke()
-          doc.fillColor('black')
-          doc.rect(left-6, currentTop, 2, tHeight)
-          doc.fill()
-          currentTop += tHeight + 12
+
+        if (showNotes) {
+          for (let i = 0; i < pageNotes.length; i++) {
+            doc.font('thin')
+            doc.fontSize(8)
+            tHeight = doc.heightOfString(pageNotes[i].text, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+            doc.text(pageNotes[i].text, left, currentTop, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+            doc.lineWidth(0.3)
+            doc.moveTo(0, pageNotes[i].yLoc)
+            doc.lineTo((8*72)*scale+xOffset-10, pageNotes[i].yLoc)
+            doc.lineTo(left-10, currentTop+3.5)
+            doc.lineTo(left-4, currentTop+3.5)
+            doc.dash(2, {space: 1})
+            doc.stroke()
+            doc.fillColor('black')
+            doc.rect(left-6, currentTop, 2, tHeight)
+            doc.fill()
+            currentTop += tHeight + 12
+          }
+          if (pageNotes.length > 0) {
+            doc.fillColor('#ccc')
+            doc.polygon([(8.5*72)-70,0],[(8.5*72),0],[(8.5*72),70])
+            doc.fill()
+            doc.lineWidth(1)
+            doc.moveTo((8.5*72)-70,0)
+            doc.lineTo((8.5*72),70)
+            doc.dash(4, {space: 2})
+            doc.stroke()
+            currentTop += 30
+          }
         }
-        if (pageNotes.length > 0) {
-          doc.fillColor('#ccc')
-          doc.polygon([(8.5*72)-70,0],[(8.5*72),0],[(8.5*72),70])
-          doc.fill()
-          doc.lineWidth(1)
-          doc.moveTo((8.5*72)-70,0)
-          doc.lineTo((8.5*72),70)
-          doc.dash(4, {space: 2})
+
+
+        for (let i = 0; i < pageImages.length; i++) {
+          doc.lineWidth(0.1)
+          let height = width*(1/2.35)
+          doc.image(imageHash[pageImages[i].filename], left, currentTop, {width: width})
+          doc.rect(left, currentTop, width, height)
+          doc.undash()
           doc.stroke()
-          currentTop += 30
+          currentTop += height + 30
         }
+
         for (let i = 0; i < 3; i++) {
           doc.lineWidth(0.1)
           let height = width*(1/2.35)
@@ -268,7 +362,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         doc.fillColor('black')
         doc.font('regular')
         doc.fontSize(8)
-        doc.text(pageNumber + ' / ' + (pageCount+1) + '', 0, documentSize[1]-40, {width: (8.5*72-30), lineBreak: false, lineGap: 0, align: 'right'})
+        doc.text(pageNumber + ' / ' + (pageCount) + '', 0, documentSize[1]-40, {width: (8.5*72-30), lineBreak: false, lineGap: 0, align: 'right'})
         for (let i = 0; i < scriptData.title.length; i++) {
           if (scriptData.title[i].type == 'title') {
             doc.fillColor('black')
@@ -289,12 +383,18 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       renderOutside()
       if (!dontReallyAddAPage) {
         pageNotes = []
+        pageImages = []
         yCursor = (marginTop*scale)
         pageNumber++
         if (render) {
           doc.addPage()
         }
       }
+
+      if (render) {
+        renderWatermark()
+      }
+
       return yCursor
     }
 
@@ -391,7 +491,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       let done = false
       let j = currentScriptNode+1
       let dialogueHeight = 0
-      let dialogueCount = 0      
+      let dialogueCount = 0
       let split = false
       let splitNode = 0
       let splitSentence = 0
@@ -586,6 +686,16 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       let yCursor = 11*72/2-72
       let tHeight
       let breakYet = false
+      let hasDraftDate = false
+
+      if (imageHash['titleImage']) {
+        let width = documentSize[0]-100
+        let height = width*(1/2.35)
+        yCursor = yCursor-(height/2)
+        doc.image(imageHash['titleImage'], documentSize[0]-width-(100/2), yCursor, {width: width})
+        yCursor += height + (72/4)
+      }
+
       for (let i = 0; i < scriptData.title.length; i++) {
         switch (scriptData.title[i].type) {
           case 'title':
@@ -606,6 +716,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             break
           case 'draft_date':
           case 'revision':
+            hasDraftDate = true
             if (!breakYet) {
               yCursor += 80
               breakYet = true
@@ -625,6 +736,18 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             break
         }
       }
+
+      if (!hasDraftDate) {
+        yCursor += 80
+        let string
+        string = 'DRAFT DATE: ' + moment().format('MMMM Do, YYYY').toUpperCase()
+        doc.fillColor('black')
+        doc.font('regular')
+        doc.fontSize(8)
+        tHeight = doc.heightOfString(string, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
+        doc.text(string, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
+      }
+
       doc.addPage()
     }
 
@@ -632,6 +755,9 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       progressCallback({string: 'Writing ' + pageCount + ' pages.', chatID: chatID})
     }
 
+    if (render) {
+      renderWatermark()
+    }
 
     for (var i = 0; i < scriptData.script.length; i++) {
       let token = scriptData.script[i]
@@ -658,7 +784,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             sceneList.push(sceneListCurrentScene)
           }
           sceneListDuration = 2000
-          sceneListNoteCount = 0 
+          sceneListNoteCount = 0
           sceneListCurrentScene = {currentPage: pageNumber, sceneNumber: sceneListSceneNumber, currentAct: sceneListCurrentAct, currentSection: sceneListCurrentSection, slugline: token.plainText}
 
           fontStyle.bold = true
@@ -711,6 +837,13 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             case 'footer':
               footerString = prop[1]
               break
+            case 'image':
+              if (options.inputPath) {
+                let filename = prop[1].trim()
+                let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
+                pageImages.push({filename: imagesrc})
+              }
+              break
           }
           continue
         default:
@@ -724,7 +857,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         if ((yCursor + height + (12*scale*5)) > ((documentSize[1]-55)*scale)) {
           // overrun
           yCursor = addPage()
-        }      
+        }
       } else {
         if ((yCursor + height) > ((documentSize[1]-55)*scale)) {
           yCursor = addPage()
@@ -752,6 +885,9 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       sceneListCurrentScene.duration = sceneListDuration
       sceneList.push(sceneListCurrentScene)
     }
+
+    //renderWatermark()
+
 
     addPage(true)
     doc.end()
@@ -784,7 +920,9 @@ const getSettings = () => {
 
     { type: 'spacer' },
 
-    { id: 'scriptSpecificScenes', label: 'Only render specific scenes (5 or 3-12)', type: 'range', default: true },
+    //{ id: 'scriptSpecificScenes', label: 'Only render specific scenes (5 or 3-12)', type: 'range', default: true },
+
+    { id: 'scriptWatermarkString', label: 'Watermark for the script', type: 'string', default: '' },
   ]
   return settings
 }

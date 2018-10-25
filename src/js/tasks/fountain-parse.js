@@ -5,13 +5,13 @@ const regex = {
   scene_number: /( *#(.+)# *)/,
 
   transition: /^((?:FADE (?:TO BLACK|OUT)|CUT TO BLACK)\.|.+ TO\:)|^(?:> *)(.+)/,
-  
+
   dialogue: /^([A-Z*_\~]+[0-9A-Z (._\-')#\~]*)(\^?)?(?:\n(?!\n+))([\s\S]+)/,
   parenthetical: /^(\(.+\))$/,
 
   action: /^(.+)/g,
   centered: /^(?:> *)(.+)(?: *<)(\n.+)*/g,
-      
+
   section: /^(#+)(?: *)(.*)/,
   synopsis: /^(?:\=(?!\=+) *)(.*)/,
 
@@ -97,7 +97,7 @@ const tokenize = (script) => {
       tokens.push({ type: 'transition', text: match[1] || match[2] })
       continue
     }
-  
+
     // dialogue blocks - characters, parentheticals and dialogue
     if (match = line.match(regex.dialogue)) {
       if (match[1].indexOf('  ') !== match[1].length - 2) {
@@ -110,7 +110,7 @@ const tokenize = (script) => {
 
         parts = match[3].split(/(\(.+\))(?:\n+)/).reverse()
 
-        for (x = 0, xlen = parts.length; x < xlen; x++) { 
+        for (x = 0, xlen = parts.length; x < xlen; x++) {
           text = parts[x]
 
           if (text.length > 0) {
@@ -129,13 +129,13 @@ const tokenize = (script) => {
         continue
       }
     }
-    
+
     // section
     if (match = line.match(regex.section)) {
       tokens.push({ type: 'section', text: match[2], depth: match[1].length })
       continue
     }
-    
+
     // synopsis
     if (match = line.match(regex.synopsis)) {
       tokens.push({ type: 'synopsis', text: match[1] })
@@ -165,7 +165,7 @@ const tokenize = (script) => {
       tokens.push({ type: 'page_break' })
       continue
     }
-    
+
     // line breaks
     if (regex.line_break.test(line)) {
       tokens.push({ type: 'line_break' })
@@ -212,11 +212,9 @@ const inlineParse = (s) => {
   return {formattedText: s.trim(), plainText: p.trim()}
 }
 
-const parse = (script) => {
+const parse = (script, filepath) => {
   let tokens = tokenize(script).reverse()
-
-  let lastTitleToken = 0
-
+  let lastTitleToken =  null
   for (var i = 0; i < tokens.length; i++) {
     switch (tokens[i].type) {
       case 'title':
@@ -246,11 +244,22 @@ const parse = (script) => {
            i++
         }
       }
-      
     }
   }
 
-  output = { title: tokens.slice(0,lastTitleToken+1), script: tokens.slice(lastTitleToken+1) }
+  let output
+
+  // if there are no title page tokens
+  if (lastTitleToken == null) {
+    // use the filepath as the title
+    let title = filepath.split('\\').pop().split('/').pop().split('.')[0]
+    output = { title: [{type: "title", text: title, formattedText: title, plainText: title}], script: tokens }
+  } else {
+    output = { title: tokens.slice(0,lastTitleToken+1), script: tokens.slice(lastTitleToken+1) }
+  }
+
+  console.log(output)
+
   return output
 }
 
