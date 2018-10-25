@@ -8,8 +8,6 @@ const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
   let scriptData = fountainParse.parse(contents, filepath)
 
-  console.log(scriptData)
-
   let title
   let author
   let chunks = []
@@ -27,43 +25,92 @@ const parseScript = (filepath) => {
     }
   }
 
+  // check if there are any sections
+  let hasSections = false
   for (var i = 0; i < scriptData.script.length; i++) {
-    if (mode == "scene" && !sceneHasImage && sequence.length > 0 && scriptData.script[i].type !== "property") {
-      sceneHasImage = true
-      sequence.push({type: "image", text: 'blank'})
-    }
-    if (scriptData.script[i].type == "property") {
-      if (scriptData.script[i].text.split(':')[0].trim() == "image") {
-        sceneHasImage = true
-        let filename = scriptData.script[i].text.split(':')[1].trim()
-        let imagesrc = path.join(path.dirname(filepath),filename.toLowerCase())
-        sequence.push({type: "image", text: imagesrc})
-      }
-    }
-    if (scriptData.script[i].type == "section" && scriptData.script[i].depth == 1) {
-      if (sequence.length > 0) {
-        chunks.push(sequence)
-      }
-      sequence = []
-      chunks.push([{type: "act", text: scriptData.script[i].text}])
-    }
-    if (scriptData.script[i].type == "section" && scriptData.script[i].depth == 2) {
-      if (sequence.length > 0) {
-        chunks.push(sequence)
-      }
-      sequence = []
-      sequence.push({type: "title", text: scriptData.script[i].text})
-    }
-    if (scriptData.script[i].type == "scene_heading" && scriptData.script[i].text !== 'BLACK') {
-      currentScene++
-      mode = 'scene'
-      sceneHasImage = false
-      sequence.push({type: "scene", text: scriptData.script[i].text, number: currentScene})
-    }
-    if (scriptData.script[i].type == "note") {
-      sequence.push({type: "note", text: scriptData.script[i].text})
+    if (scriptData.script[i].type == "section") {
+      hasSections = true
+      break
     }
   }
+
+  if (hasSections) {
+    for (var i = 0; i < scriptData.script.length; i++) {
+      if (mode == "scene" && !sceneHasImage && sequence.length > 0 && scriptData.script[i].type !== "property") {
+        sceneHasImage = true
+        sequence.push({type: "image", text: 'blank'})
+      }
+      if (scriptData.script[i].type == "property") {
+        if (scriptData.script[i].text.split(':')[0].trim() == "image") {
+          sceneHasImage = true
+          let filename = scriptData.script[i].text.split(':')[1].trim()
+          let imagesrc = path.join(path.dirname(filepath),filename.toLowerCase())
+          sequence.push({type: "image", text: imagesrc})
+        }
+      }
+      if (scriptData.script[i].type == "section" && scriptData.script[i].depth == 1) {
+        if (sequence.length > 0) {
+          chunks.push(sequence)
+        }
+        sequence = []
+        chunks.push([{type: "act", text: scriptData.script[i].text}])
+      }
+      if (scriptData.script[i].type == "section" && scriptData.script[i].depth == 2) {
+        if (sequence.length > 0) {
+          chunks.push(sequence)
+        }
+        sequence = []
+        sequence.push({type: "title", text: scriptData.script[i].text})
+      }
+      if (scriptData.script[i].type == "scene_heading") {
+        currentScene++
+        mode = 'scene'
+        if (scriptData.script[i].text !== 'BLACK') {
+
+          sceneHasImage = false
+        }
+        sequence.push({type: "scene", text: scriptData.script[i].text, number: currentScene})
+      }
+      if (scriptData.script[i].type == "note") {
+        sequence.push({type: "note", text: scriptData.script[i].text})
+      }
+    }
+  } else {
+    for (var i = 0; i < scriptData.script.length; i++) {
+      if (mode == "scene" && !sceneHasImage && sequence.length > 0 && scriptData.script[i].type !== "property") {
+        sceneHasImage = true
+        sequence.push({type: "image", text: 'blank'})
+      }
+      if (scriptData.script[i].type == "property") {
+        if (scriptData.script[i].text.split(':')[0].trim() == "image") {
+          sceneHasImage = true
+          let filename = scriptData.script[i].text.split(':')[1].trim()
+          let imagesrc = path.join(path.dirname(filepath),filename.toLowerCase())
+          sequence.push({type: "image", text: imagesrc})
+        }
+      }
+      if (scriptData.script[i].type == "scene_heading") {
+
+        if (sequence.length > 0) {
+          chunks.push(sequence)
+        }
+
+        sequence = []
+
+        currentScene++
+        if (scriptData.script[i].text !== 'BLACK') {
+          mode = 'scene'
+          sceneHasImage = false
+        }
+        sequence.push({type: "scene", text: scriptData.script[i].text, number: currentScene})
+      }
+      if (scriptData.script[i].type == "note") {
+        sequence.push({type: "note", text: scriptData.script[i].text})
+      }
+    }
+  }
+
+
   chunks.push(sequence)
   return {chunks: chunks, title: title, author: author}
 }
@@ -91,7 +138,7 @@ const renderChunk = (chunk, doc, width, x, y, render) => {
       needsWork = Array.isArray(chunk[i].text.match(/~~/g, ''))
       atomText = chunk[i].text.replace(/~~/g, '').toUpperCase()
     }
-    if (chunk[i].type == "scene") {
+    if (chunk[i].type == "scene" && chunk[i].text !== 'BLACK') {
       doc.fontSize(width*0.035)
       doc.font('regular')
       paddingBottom = width*0.01
@@ -102,6 +149,28 @@ const renderChunk = (chunk, doc, width, x, y, render) => {
         doc.fontSize(width*0.02)
         doc.font('thin')
         doc.text(chunk[i].number + '.', x-(width*0.04)-(width*0.015), y+ verticalCursor+(width*0.008), {width: width*0.04, align: 'right'})
+        doc.restore()
+      }
+    }
+    if (chunk[i].type == "scene" && chunk[i].text == 'BLACK') {
+      doc.fontSize(width*0.035)
+      doc.font('regular')
+      paddingBottom = width*0.01
+      atomText = ''
+      if (render) {
+        doc.save()
+
+        doc.lineWidth((width*0.01))
+        doc.lineCap('butt')
+          .moveTo(x, y+verticalCursor + width*0.05)
+          .lineTo(x+(width), y+verticalCursor + width*0.05)
+          .stroke()
+
+
+
+        // doc.fontSize(width*0.02)
+        // doc.font('thin')
+        // doc.text(chunk[i].number + '.', x-(width*0.04)-(width*0.015), y+ verticalCursor+(width*0.008), {width: width*0.04, align: 'right'})
         doc.restore()
       }
     }
@@ -131,7 +200,6 @@ const renderChunk = (chunk, doc, width, x, y, render) => {
     }
     if (chunk[i].type == "image") {
       if (render) {
-        console.log(chunk[i].text)
         if (chunk[i].text !== 'blank') {
           doc.image(chunk[i].text, x, y+ verticalCursor, {width: width})
         }
@@ -168,7 +236,9 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
       actCount++
     }
   }
+
   let columnsFit = false
+  let doesntFit = false
   let cursorY = margin[1]
   let cursorX = margin[0]
   let actSpacing = (documentSize[0]/columnCount)*0.4
@@ -193,26 +263,52 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
     if ((cursorY+height) > documentSize[1]-margin[1]-margin[3]) {
       cursorY = margin[1] + (documentSize[0]/columnCount)*0.118
       cursorX += chunkWidth+ columnSpacing
-      if ((cursorX+chunkWidth+actSpacing+columnSpacing+20) > (documentSize[0]- margin[0] -margin[2])) {
+
+      if ((cursorX+(chunkWidth*1)) > (documentSize[0]- margin[0] -margin[2])) {
+        if (!render) {
+          doesntFit = true
+          console.log('doesnt fit')
+          console.log((cursorX+(chunkWidth*1)+actSpacing+(columnSpacing*1)+20), (documentSize[0]- margin[0] -margin[2]) )
+          break
+        }
+      }
+    }
+
+    if ((cursorX+(chunkWidth*1)) > (documentSize[0]- margin[0] -margin[2])) {
+      if (!render) {
+        doesntFit = true
+        console.log('doesnt fit')
+        console.log((cursorX+(chunkWidth*1)+actSpacing+(columnSpacing*1)+20), (documentSize[0]- margin[0] -margin[2]) )
         break
       }
     }
+
+
+
     if (i == chunks.length-1) {
+      console.log(doesntFit)
       columnsFit = true
+      if (!render) {
+      console.log((cursorX+(chunkWidth*1)+actSpacing+(columnSpacing*1)+20), (documentSize[0]- margin[0] -margin[2]) )
+      }
     }
     if (render) {
       progressCallback({string: "Rendering Node " + (i+1) + ' of ' + chunks.length, chatID: chatID})
       renderChunk(chunks[i], doc, chunkWidth, cursorX, cursorY, true)
     }
     cursorY += height + verticalSpacing
-    if (i == chunks.length-1 && render) {
-      if (render) {
-        doc.lineWidth(((documentSize[0]/columnCount)*0.015))
-        doc.lineCap('butt')
-          .moveTo(lastActStart, margin[1] + ((documentSize[0]/columnCount)*0.055))
-          .lineTo(cursorX + chunkWidth, margin[1] + ((documentSize[0]/columnCount)*0.055))
-          .stroke()
+
+    if (lastActStart) {
+      if (i == chunks.length-1 && render) {
+        if (render) {
+          doc.lineWidth(((documentSize[0]/columnCount)*0.015))
+          doc.lineCap('butt')
+            .moveTo(lastActStart, margin[1] + ((documentSize[0]/columnCount)*0.055))
+            .lineTo(cursorX + chunkWidth, margin[1] + ((documentSize[0]/columnCount)*0.055))
+            .stroke()
+        }
       }
+
     }
   }
   return columnsFit
@@ -235,8 +331,9 @@ const generate = async (options = {}) => {
 const renderScript = (options = {}) => {
   return new Promise((resolve, reject) => {
     let script = parseScript(options.inputPath)
-    let documentSize = [48*72,24*72]
+    let documentSize = [48*72,36*72]
     let margin = [40, 22, 40, 40]
+
     let doc = new pdfDocument({size: documentSize, layout: 'portrait', margin: 0})
     doc.registerFont('thin',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Thin.ttf'))
     doc.registerFont('italic',   path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-RegularItalic.ttf'))
@@ -250,29 +347,50 @@ const renderScript = (options = {}) => {
     let columnsFit = false
     while (!columnsFit) {
       columnsFit = layoutChunks(script.chunks, columnCount, doc, documentSize, false, margin)
-      columnCount++
+      columnCount += 0.01
       progressCallback({string: "Trying to layout out... " + columnCount, chatID: chatID})
     }
-    columnCount--
+
+    columnCount -= 0.02
+    console.log(columnCount)
+    //columnCount = 9.26
+
+    console.log('zoinks 1')
+
     layoutChunks(script.chunks, columnCount, doc, documentSize, true, margin)
+
+    console.log('zoinks 2')
+
     doc.fontSize(documentSize[0]/columnCount*.15)
     doc.font('black')
+    console.log('zoinks A', (documentSize[0]/columnCount*.15))
     let titleWidth = doc.widthOfString(script.title)
-    let titleHeight = doc.heightOfString(script.title)
+    console.log('zoinks A', titleWidth,script.title)
+      let titleHeight = doc.heightOfString(script.title, {width: titleWidth})
+
+
+    console.log('zoinks A')
     doc.text(script.title, doc.page.width-margin[2]-titleWidth, doc.page.height-margin[3]-1.25-titleHeight, {lineBreak: false})
     let dateText = 'DRAFT: ' + moment().format('MMMM D, YYYY').toUpperCase() + '  //  ' + script.author
+    console.log('zoinks A')
+
     doc.fontSize(documentSize[0]/columnCount*.025)
     doc.font('thin')
     let dateHeight = doc.heightOfString(dateText, {lineBreak: false, align: 'right', width: 400})
     doc.text(dateText, doc.page.width-margin[2]-400, doc.page.height-margin[3]-1.25-dateHeight-titleHeight-(documentSize[0]/columnCount*.01), {lineBreak: false, align: 'right', width: 400})
     doc.fontSize(10)
     doc.font('thin')
+    console.log('zoinks d')
+
     let logoWidth = doc.widthOfString('')
     doc.fontSize(5)
     let wuWidth = doc.widthOfString(' WONDER UNIT', {characterSpacing: 1})
     doc.fontSize(6)
     let sbWidth = doc.widthOfString('   //   Outliner')
     doc.fontSize(10)
+
+    console.log('zoinks f')
+
     doc.text('', doc.page.width-margin[2]-logoWidth-wuWidth-sbWidth-1.25, doc.page.height-margin[3]-1.25, {lineBreak: false})
     doc.fontSize(5)
     doc.text(' WONDER UNIT', doc.page.width-margin[2]-wuWidth-sbWidth, doc.page.height-margin[3]+0.5, {lineBreak: false, characterSpacing: 1})

@@ -210,8 +210,6 @@ const init = async () => {
     }
   })
 
-  console.log(this)
-
   generatorButton.createButton('#generateSceneList', generateSceneList, prefs, {
     inputPath: scriptPath,
     outputPath: path.join(outputDirectory, 'scene-list.csv'),

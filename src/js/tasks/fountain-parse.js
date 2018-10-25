@@ -258,7 +258,7 @@ const parse = (script, filepath) => {
     output = { title: tokens.slice(0,lastTitleToken+1), script: tokens.slice(lastTitleToken+1) }
   }
 
-  console.log(output)
+  //console.log(output)
 
   return output
 }
