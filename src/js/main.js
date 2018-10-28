@@ -1,7 +1,4 @@
-const electron = require('electron')
-const { ipcMain } = require('electron')
-const app = electron.app
-const BrowserWindow = electron.BrowserWindow
+const {app, ipcMain, BrowserWindow, dialog} = electron = require('electron')
 
 const isDev = require('electron-is-dev')
 
@@ -17,12 +14,10 @@ process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = true
 
 function createWindow () {
   mainWindow = new BrowserWindow({
-    width: 1500, 
-    height: 900, 
-    minWidth: 1200, 
-    minHeight: 715, 
-    x: 0,
-    y: 0,
+    width: 1200,
+    height: 800,
+    minWidth: 1200,
+    minHeight: 715,
     show: false,
     center: true,
     frame: false,
@@ -44,10 +39,10 @@ function createWindow () {
   }))
 
   // mainWindow = new BrowserWindow({
-  //   width: 1500, 
-  //   height: 900, 
-  //   minWidth: 1200, 
-  //   minHeight: 715, 
+  //   width: 1500,
+  //   height: 900,
+  //   minWidth: 1200,
+  //   minHeight: 715,
   //   x: 0,
   //   y: 0,
   //   show: false,
@@ -69,6 +64,35 @@ function createWindow () {
   //   protocol: 'file:',
   //   slashes: true
   // }))
+
+  if (os.platform() === 'darwin') {
+    if (!isDev && !app.isInApplicationsFolder()) {
+      const choice = dialog.showMessageBox({
+        type: 'question',
+        title: 'Move to Applications folder?',
+        message: 'Would you like to move Storyboarder to the Applications folder?',
+        buttons: ['Move to Applications', 'Do Not Move'],
+        defaultId: 1
+      })
+      const yes = (choice === 0)
+      if (yes) {
+        try {
+          let didMove = app.moveToApplicationsFolder()
+          if (!didMove) {
+            dialog.showMessageBox(null, {
+              type: 'error',
+              message: 'Could not move to Applications folder'
+            })
+          }
+        } catch (err) {
+          dialog.showMessageBox(null, {
+            type: 'error',
+            message: err.message
+          })
+        }
+      }
+    }
+  }
 
 
 
@@ -94,32 +118,3 @@ app.on('activate', function () {
     createWindow()
   }
 })
-
-if (os.platform() === 'darwin') {
-  if (!isDev && !app.isInApplicationsFolder()) {
-    const choice = dialog.showMessageBox({
-      type: 'question',
-      title: 'Move to Applications folder?',
-      message: 'Would you like to move Storyboarder to the Applications folder?',
-      buttons: ['Move to Applications', 'Do Not Move'],
-      defaultId: 1
-    })
-    const yes = (choice === 0)
-    if (yes) {
-      try {
-        let didMove = app.moveToApplicationsFolder()
-        if (!didMove) {
-          dialog.showMessageBox(null, {
-            type: 'error',
-            message: 'Could not move to Applications folder'
-          })
-        }
-      } catch (err) {
-        dialog.showMessageBox(null, {
-          type: 'error',
-          message: err.message
-        })
-      }
-    }
-  }
-}
