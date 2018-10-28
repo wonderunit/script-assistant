@@ -44,8 +44,6 @@ const generate = async (options = {}) => {
     titlePage: true,
   }
 
-  console.log(options)
-
   let notesScriptOptions = {
     pageCount: data.pageCount,
     scale: 0.8,
@@ -55,6 +53,7 @@ const generate = async (options = {}) => {
     scriptFooter: false,
     showLineNumbers: options.settings.scriptShowLineNumbers,
     showNotes: options.settings.scriptIncludeNotes,
+    showImages: options.settings.scriptIncludeImages,
     showOutside: true,
     titlePage: options.settings.scriptIncludeTitlePage,
     inputPath: options.inputPath,
@@ -88,7 +87,6 @@ let imageHash = {}
 
 const renderScript = async (scriptData, render, outputFilePath, options) => {
   return new Promise(async (resolve, reject) => {
-
     sceneList = []
     sceneListDuration = 0
     sceneListCurrentAct
@@ -96,7 +94,6 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
     sceneListNoteCount = 0
     sceneListSceneNumber = 0
     sceneListCurrentScene = null
-
 
     if (!options) { options = {}}
     let documentSize = [8.5*72,11*72]
@@ -124,6 +121,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
     let scriptFooter = options.scriptFooter || false
     let pageCount = options.pageCount || ''
     let showNotes = options.showNotes || false
+    let showImages = options.showImages || false
     let showLineNumbers = options.showLineNumbers
     let showOutside = options.showOutside || false
     let titlePage = options.titlePage
@@ -139,13 +137,14 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
     let leftM = ((8.5*72)-10)*scale + xOffset
     let widthM = (8.5*72)-leftM - 30
 
-    if (render) {
+    if (render && showImages) {
       for (let i = 0; i < scriptData.title.length; i++) {
         if (scriptData.title[i].type == 'property') {
           let prop = scriptData.title[i].formattedText.split(': ')
           if (prop[0].toLowerCase() == 'image') {
             if (options.inputPath) {
               if (!imageHash['titleImage']) {
+                progressCallback({string: 'Resizing title image', chatID: chatID})
                 let filename = prop[1].trim()
                 let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
                 let value = await Jimp.read(imagesrc)
@@ -164,6 +163,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
               let filename = prop[1].trim()
               let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
               if (!imageHash[imagesrc]) {
+                progressCallback({string: 'Resizing script image: ' + (i+1) + ' of ' + scriptData.script.length, chatID: chatID})
                 let value = await Jimp.read(imagesrc)
                 let image = await value.resize(Math.round(widthM*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
                 imageHash[imagesrc] = image
@@ -196,8 +196,6 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         doc.fontSize(12*scale)
       }
     }
-
-
 
     let renderHeader = (number) => {
       if (scriptHeader && render) {
@@ -339,15 +337,16 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
           }
         }
 
-
-        for (let i = 0; i < pageImages.length; i++) {
-          doc.lineWidth(0.1)
-          let height = width*(1/2.35)
-          doc.image(imageHash[pageImages[i].filename], left, currentTop, {width: width})
-          doc.rect(left, currentTop, width, height)
-          doc.undash()
-          doc.stroke()
-          currentTop += height + 30
+        if (showImages) {
+          for (let i = 0; i < pageImages.length; i++) {
+            doc.lineWidth(0.1)
+            let height = width*(1/2.35)
+            doc.image(imageHash[pageImages[i].filename], left, currentTop, {width: width})
+            doc.rect(left, currentTop, width, height)
+            doc.undash()
+            doc.stroke()
+            currentTop += height + 30
+          }
         }
 
         for (let i = 0; i < 3; i++) {
@@ -688,7 +687,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       let breakYet = false
       let hasDraftDate = false
 
-      if (imageHash['titleImage']) {
+      if (imageHash['titleImage'] && showImages) {
         let width = documentSize[0]-100
         let height = width*(1/2.35)
         yCursor = yCursor-(height/2)
@@ -739,8 +738,9 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
 
       if (!hasDraftDate) {
         yCursor += 80
+        let dateString = moment().format('MMMM Do, YYYY')
         let string
-        string = 'DRAFT DATE: ' + moment().format('MMMM Do, YYYY').toUpperCase()
+        string = 'DRAFT DATE: ' + dateString.charAt(0).toUpperCase() + dateString.slice(1)
         doc.fillColor('black')
         doc.font('regular')
         doc.fontSize(8)
@@ -886,9 +886,6 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       sceneList.push(sceneListCurrentScene)
     }
 
-    //renderWatermark()
-
-
     addPage(true)
     doc.end()
     if (render) {
@@ -907,21 +904,15 @@ const getSettings = () => {
   let settings = [
     { type: 'title', text: 'Export a Script PDF' },
     { type: 'description', text: 'Export your script as an industry standard script or with margins to include notes, storyboards, and space to write.' },
-
     { id: 'scriptPageSize', label: 'Page Size', type: 'dropdown', values: [{text: 'Letter', value: 'letter'}, {text: 'A4', value: 'a4'}], default: 1 },
     { id: 'scriptFont', label: 'Font', type: 'dropdown', values: [{text: 'Courier Prime', value: 'prime'}, {text: 'Courier Prime Sans', value: 'sans'}], default: 1 },
     { id: 'scriptType', label: 'Type', type: 'dropdown', values: [{text: 'Normal', value: 'normal'}, {text: 'Margin with thumbnails', value: 'thumbnails'}, {text: 'Margin with blank', value: 'blank'}], default: 1 },
-
     { type: 'spacer' },
-
     { id: 'scriptIncludeTitlePage', label: 'Include Title Page', type: 'checkbox', default: true },
     { id: 'scriptShowLineNumbers', label: 'Show line numbers', type: 'checkbox', default: true },
     { id: 'scriptIncludeNotes', label: 'Show Notes', type: 'checkbox', default: true },
-
+    { id: 'scriptIncludeImages', label: 'Show Images', type: 'checkbox', default: true },
     { type: 'spacer' },
-
-    //{ id: 'scriptSpecificScenes', label: 'Only render specific scenes (5 or 3-12)', type: 'range', default: true },
-
     { id: 'scriptWatermarkString', label: 'Watermark for the script', type: 'string', default: '' },
   ]
   return settings
