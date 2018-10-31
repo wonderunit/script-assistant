@@ -5,6 +5,7 @@ const path = require('path')
 const pdfDocument = require('pdfkit')
 const moment = require('moment')
 const Jimp = require('jimp')
+const qr = require('qr-image')
 
 const fountainParse = require('../fountain-parse')
 
@@ -60,13 +61,14 @@ const generate = async (options = {}) => {
     scriptWatermarkString: options.settings.scriptWatermarkString,
   }
 
-  console.log(notesScriptOptions)
-
   setTimeout(()=>{renderScript(scriptData, true, options.outputPath, notesScriptOptions)},1)
 }
 
 const getPages = async (options = {}) => {
   let scriptData = parseScript(options.inputPath)
+
+  console.log(scriptData)
+
   return await renderScript(scriptData, false)
 }
 
@@ -133,9 +135,19 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
     let yCursor = (marginTop*scale)
     let currentParagraph = 0
     let watermarkText = options.scriptWatermarkString || ''
+    let tableread = false
 
     let leftM = ((8.5*72)-10)*scale + xOffset
     let widthM = (8.5*72)-leftM - 30
+
+    for (let i = 0; i < scriptData.title.length; i++) {
+      if (scriptData.title[i].type == 'property') {
+        let prop = scriptData.title[i].formattedText.split(': ')
+        if (prop[0].toLowerCase() == 'tableread') {
+          tableread = prop[1].trim()
+        }
+      }
+    }
 
     if (render && showImages) {
       for (let i = 0; i < scriptData.title.length; i++) {
@@ -163,7 +175,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
               let filename = prop[1].trim()
               let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
               if (!imageHash[imagesrc]) {
-                progressCallback({string: 'Resizing script image: ' + (i+1) + ' of ' + scriptData.script.length, chatID: chatID})
+                progressCallback({string: 'Resizing script image: ' + Math.round(((i+1)/scriptData.script.length)*100) + '%', chatID: chatID})
                 let value = await Jimp.read(imagesrc)
                 let image = await value.resize(Math.round(widthM*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
                 imageHash[imagesrc] = image
@@ -387,17 +399,20 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         pageNumber++
         if (render) {
           doc.addPage()
+        } else {
+          doc.addPage()
         }
       }
 
-      if (render) {
-        renderWatermark()
-      }
+      renderWatermark()
 
       return yCursor
     }
 
-    let renderDialogueLines = (scriptData, currentScriptNode, yCursor, documentSize, scale, untilNode, untilSentence, characterText) => {
+    let renderDialogueLines = (scriptData, currentScriptNode, yCursor, documentSize, scale, untilNode, untilSentence, characterText, startSentence, continued) => {
+
+      console.log(scriptData, currentScriptNode, yCursor, documentSize, scale, untilNode, untilSentence, characterText, startSentence)
+
       let done = false
       let j = currentScriptNode+1
       let fontStyle = {bold: false, italic: false, underline: false, highlight: false, strikethrough: false}
@@ -406,11 +421,16 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         width = (documentSize[0]-250-72)*scale
         left = 250*scale
         lineAfter = false
-        let dialogueHeight = doc.heightOfString(characterText + " (CONT'D)", {width: width, lineBreak: true, lineGap: 0, align: 'left'})
-        if (render) {
-          drawLineNumber(yCursor)
-          renderFormattedText(characterText + " (CONT'D)", left, yCursor, width, 'left', fontStyle)
+        let chrString = characterText
+        if (continued) {
+          chrString += " (CONT'D)"
         }
+
+        let dialogueHeight = doc.heightOfString(chrString, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+        //if (render) {
+          drawLineNumber(yCursor)
+          renderFormattedText(chrString, left, yCursor, width, 'left', fontStyle)
+        //}
         yCursor += dialogueHeight
       }
       while (done == false) {
@@ -421,6 +441,9 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         let align = 'left'
         let lineBefore = false
         let lineAfter = false
+        let sentences
+        let plainSentences
+
         switch (token.type) {
           case 'character':
             width = (documentSize[0]-250-72)*scale
@@ -433,25 +456,54 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             left = 210*scale
             lineAfter = false
             dialogueHeight += doc.heightOfString(token.plainText, {width: width, lineBreak: true, lineGap: 0, align: align})
+            sentenceText = token.formattedText
             break
           case 'dialogue':
             width = 266*scale
             left = 180*scale
             lineAfter = false
-            let sentences = token.formattedText.match( /([^\.!\?]+[\.!\?]+)([^\.!\?])\"?/g )
+
+            sentenceText = token.formattedText
+
+            sentences = (token.formattedText + ' ').match( /([^\.!\?]+[\.!\?]+)([^\.!\?])\"?/g )
+            plainSentences = (token.plainText + ' ').match( /([^\.!\?]+[\.!\?]+)([^\.!\?])\"?/g )
+            let plainSentenceText
             if (!sentences) {
               sentences = [token.formattedText]
             }
-            if ((j == (untilNode-1)) && (untilSentence)) {
-              for (var z = 0; z < (untilSentence+1); z++) {
-                sentenceText = sentences.slice(0,z+1).join(' ')
-              }
-            } else {
-              for (var z = 0; z < sentences.length; z++) {
-                sentenceText = sentences.slice(0,z+1).join(' ')
-              }
+            if (!plainSentences) {
+              plainSentences = [token.plainText]
             }
-            dialogueHeight += doc.heightOfString(token.plainText, {width: width, lineBreak: true, lineGap: 0, align: align})
+            if (untilSentence) {
+
+              console.log("UNTIL SENTENCE", untilSentence)
+
+
+              if (j == (untilNode-1)) {
+                console.log("correct node!!!", untilSentence)
+
+
+                //for (var z = 0; z < (untilSentence+1); z++) {
+                  sentenceText = sentences.slice(0,untilSentence).join('')
+                //}
+              } else {
+                for (var z = 0; z < sentences.length; z++) {
+                  sentenceText = sentences.slice(0,z+1).join('')
+                }
+              }
+
+            }
+            if (startSentence) {
+              console.log("STRAT SETNETASD", sentences, startSentence)
+              sentenceText = sentences.slice(startSentence).join('')
+              plainSentenceText = plainSentences.slice(startSentence).join('')
+            }
+            if (startSentence) {
+              dialogueHeight += doc.heightOfString(plainSentenceText, {width: width, lineBreak: true, lineGap: 0, align: align})
+            } else {
+              dialogueHeight += doc.heightOfString(token.plainText, {width: width, lineBreak: true, lineGap: 0, align: align})
+
+            }
             break
           case 'dialogue_end':
             lineAfter = true
@@ -464,15 +516,20 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         }
         if (token.formattedText) {
           if (j == (untilNode-1)) {
-            if (render) {
+            //if (render) {
               drawLineNumber(yCursor)
               renderFormattedText(sentenceText, left, yCursor, width, align, fontStyle)
-            }
+            //}
+          } else if (startSentence) {
+            drawLineNumber(yCursor)
+            console.log(startSentence, sentenceText)
+            renderFormattedText(sentenceText, left, yCursor, width, align, fontStyle)
+            startSentence = null
           } else {
-            if (render) {
+            //if (render) {
               drawLineNumber(yCursor)
               renderFormattedText(token.formattedText, left, yCursor, width, align, fontStyle)
-            }
+            //}
           }
         }
         if (lineAfter) {
@@ -496,7 +553,11 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       let splitSentence = 0
       let characterText
       let result = {yCursor: yCursor, currentScriptNode: j}
+
+      console.log("renderDialogue: ", currentScriptNode, yCursor, i)
+
       while (done == false) {
+        console.log('i', i)
         let token = scriptData.script[j]
         let width = 0
         let left = 0
@@ -512,7 +573,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             dialogueHeight += doc.heightOfString(token.plainText, {width: width, lineBreak: true, lineGap: 0, align: align})
             characterText = token.plainText
             break
-          case 'parenthetical':
+          case 'parenthetical2':
             sceneListDuration += getDurationOfWords(token.plainText, 300)+1000
             width = 250*scale
             left = 210*scale
@@ -520,55 +581,66 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             dialogueHeight += doc.heightOfString(token.plainText, {width: width, lineBreak: true, lineGap: 0, align: align})
             if ((yCursor + dialogueHeight + (doc.heightOfString("(MORE)", {width: width, lineBreak: true, lineGap: 0, align: align}))*2) > ((documentSize[1]-55)*scale)) {
               if (dialogueCount == 0) {
-                // couldn't draw even the first sentence. clean break.
-                splitNode = j+1
-                //result = renderDialogueLines(scriptData, splitNode-2, yCursor, documentSize, scale, null, null, characterText)
+                splitNode = j+2
                 done = true
                 i = j
               } else {
                 // cool - we can draw at least one sentence
-                renderDialogueLines(scriptData, currentScriptNode, yCursor, documentSize, scale, j)
+
+                console.log("parenthetical breaking, first set:", currentScriptNode)
+               renderDialogueLines(scriptData, currentScriptNode, yCursor, documentSize, scale, j)
                 split = true
                 splitNode = j+1
                 splitSentence = z
               }
               yCursor = addPage()
+              console.log("parenthetical breaking, last set:", currentScriptNode)
 
-              result = renderDialogueLines(scriptData, splitNode-2, yCursor, documentSize, scale, null, null, characterText)
+              result = renderDialogueLines(scriptData, splitNode-3, yCursor, documentSize, scale, null, null, characterText, z)
               done = true
               i = j
             }
             break
           case 'dialogue':
+          case 'parenthetical':
             sceneListDuration += getDurationOfWords(token.plainText, 300)+1000
             width = 266*scale
             left = 180*scale
             lineAfter = false
-            let sentences = token.plainText.match( /([^\.!\?]+[\.!\?]+)([^\.!\?])\"?/g )
+            let sentences = (token.plainText + ' ').match( /([^\.!\?]+[\.!\?]+)([^\.!\?])\"?/g )
             if (!sentences) {
               sentences = [token.plainText]
             }
             dialogueCount++
             let tHeight
             for (var z = 0; z < sentences.length; z++) {
+              console.log(currentScriptNode, z, sentences)
               let sentenceText = sentences.slice(0,z+1).join(' ')
               tHeight = dialogueHeight + doc.heightOfString(sentenceText, {width: width, lineBreak: true, lineGap: 0, align: align}) + (doc.heightOfString("(MORE)", {width: width, lineBreak: true, lineGap: 0, align: align})*1)
               if (scriptData.script[j+1].type !== 'dialogue_end') {
                 tHeight = dialogueHeight + doc.heightOfString(sentenceText, {width: width, lineBreak: true, lineGap: 0, align: align}) + (doc.heightOfString("(MORE)", {width: width, lineBreak: true, lineGap: 0, align: align})*2)
               }
               if ((yCursor + tHeight) > ((documentSize[1]-55)*scale)) {
+
+                console.log(sentenceText, 'is too tall, breaking')
+
+                let continued = false
+
                 if (dialogueCount == 1 && z == 0) {
                   // couldn't draw even the first sentence. clean break.
+                  splitNode = j-1
                 } else {
                   // cool - we can draw at least one sentence
-                  renderDialogueLines(scriptData, currentScriptNode, yCursor, documentSize, scale, j+1, z)
+                  continued = true
+                  console.log("dialogue breaking, first set:", currentScriptNode, j, z )
                   split = true
-                  if (z == (sentences.length-1)) {
-                    splitNode = j+2
+                  if (z == 0) {
+                    splitNode = j-1
+                    renderDialogueLines(scriptData, currentScriptNode, yCursor, documentSize, scale, j)
                   } else {
-                    splitNode = j+1
+                    splitNode = j-1
+                    renderDialogueLines(scriptData, currentScriptNode, yCursor, documentSize, scale, j+1, z)
                   }
-                  splitSentence = z
                 }
                 // can I draw previous stuff?
                 // if so draw it
@@ -580,6 +652,11 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
                 // try again
                 tHeight = 0
                 yCursor = addPage()
+                console.log("dialogue breaking, last set:", splitNode, yCursor, documentSize, scale, null, null, characterText, z, continued)
+                result = renderDialogueLines(scriptData, splitNode, yCursor, documentSize, scale, null, null, characterText, z, continued)
+                 done = true
+                 i = j
+
                 z = 999
               }
             }
@@ -588,6 +665,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
           case 'dialogue_end':
             // if no break, draw the dialogue
             if (split) {
+              console.log("dialogue_end breaking:", currentScriptNode)
               result = renderDialogueLines(scriptData, splitNode-2, yCursor, documentSize, scale, null, null, characterText)
             } else {
               result = renderDialogueLines(scriptData, i, yCursor, documentSize, scale)
@@ -602,6 +680,9 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
     }
 
     let renderFormattedText = (text, left, yCursor, width, align, incomingFontStyle) => {
+
+      console.log("RENDERING: ", String(text))
+
       let textArray = text.split('|')
       let continued = true
       let fontStyleBuffer = [ Object.assign({}, incomingFontStyle) ]
@@ -694,6 +775,21 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         doc.image(imageHash['titleImage'], documentSize[0]-width-(100/2), yCursor, {width: width})
         yCursor += height + (72/4)
       }
+
+      if (tableread) {
+        let qrImage = qr.imageSync(tableread, {ec_level: 'H', type: 'png', size: 15, margin: 0, parse_url: true})
+        doc.image(qrImage, documentSize[0]-100, documentSize[1]-100, {width: 70})
+        doc.font('bold')
+        doc.fontSize(8)
+        doc.text("Listen to the script on your phone:", documentSize[0]-180-10, documentSize[1]-100, {width: 80, lineBreak: true, lineGap: 0, align: 'right'})
+        doc.font('thin')
+        doc.fontSize(6)
+        doc.text("Open the camera app, and point the camera here...", documentSize[0]-180-10, documentSize[1]-100+20, {width: 80, lineBreak: true, lineGap: 0, align: 'right'})
+
+      }
+
+      //
+
 
       for (let i = 0; i < scriptData.title.length; i++) {
         switch (scriptData.title[i].type) {
@@ -892,9 +988,11 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       stream.on('finish', () => {
         doneCallback({string: "done!", chatID: chatID})
         finishedCallback()
+        // console.log("PAGE COUNT: " + pageNumber, sceneList)
         resolve({ pageCount: pageNumber, sceneList: sceneList })
       })
     } else {
+      // console.log("PAGE COUNT (NO RENDER): " + pageNumber, sceneList)
       resolve({ pageCount: pageNumber, sceneList: sceneList })
     }
   })
