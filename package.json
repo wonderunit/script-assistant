@@ -1,7 +1,7 @@
 {
   "name": "script-assistant",
   "productName": "Script Assistant",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "The essential tool for a screenplay writer.",
   "main": "src/js/main.js",
   "scripts": {

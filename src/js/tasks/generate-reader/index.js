@@ -33,6 +33,10 @@ const setUpDirectories = () => {
     fs.mkdirSync(path.join(app.getPath('userData'), 'exports','chunks'))
   }
 
+  if (!fs.existsSync(path.join(app.getPath('userData'), 'exports','events'))) {
+    fs.mkdirSync(path.join(app.getPath('userData'), 'exports','events'))
+  }
+
   if (!fs.existsSync(path.join(app.getPath('userData'), 'exports','scenes'))) {
     fs.mkdirSync(path.join(app.getPath('userData'), 'exports','scenes'))
   }
@@ -194,7 +198,6 @@ const renderScene = async (scriptArray, progressString, sceneNumber) => {
         arrayOfResults.push(result)
       }
 
-      let exportFolder = app.getAppPath()
       let args = []
 
       for (var i = 0; i < arrayOfResults.length; i++) {
@@ -203,11 +206,11 @@ const renderScene = async (scriptArray, progressString, sceneNumber) => {
             // args.push('-i ' + 'soundevents/intro.aiff')
             break
           case 'scene_heading':
-            args = args.concat(['-i', '"' + path.join(exportFolder, 'src/sounds/events/scene3.aiff' + '"')])
+            args = args.concat(['-i', '"' + path.join(app.getPath('userData'), 'exports', 'events', 'scene3.aiff') + '"'])
             break
           case 'action':
             if (arrayOfResults[i].plainText.startsWith('- ')) {
-              args = args.concat(['-i', '"' + path.join(exportFolder, 'src/sounds/events/bullet2.aiff') + '"'])
+              args = args.concat(['-i', '"' + path.join(app.getPath('userData'), 'exports', 'events', 'bullet2.aiff') + '"'])
             }
             break
           case 'property':
@@ -343,8 +346,14 @@ const generate = async (options = {}) => {
 
   let settings = options.settings
 
-  progressCallback({string: "started", chatID: chatID})
   setUpDirectories()
+
+  let asarPath = app.getAppPath()
+  fs.copyFileSync(path.join(asarPath, 'src/sounds/events/scene3.aiff'), path.join(app.getPath('userData'), 'exports', 'events', 'scene3.aiff'))
+  fs.copyFileSync(path.join(asarPath, 'src/sounds/events/bullet2.aiff'), path.join(app.getPath('userData'), 'exports', 'events', 'bullet2.aiff'))
+
+  progressCallback({string: "started", chatID: chatID})
+
   inputPath = options.inputPath
   let contents = fs.readFileSync(options.inputPath, "utf8");
   let scriptData = fountainParse.parse(contents, options.inputPath)
@@ -435,8 +444,6 @@ const generate = async (options = {}) => {
     let result = await renderScene(scene, 'Title page. ')
     arrayOfResults.unshift(result)
   }
-
-  let exportFolder = app.getAppPath()
 
   let args = []
   let totalDurationInSeconds = 0
