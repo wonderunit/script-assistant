@@ -267,8 +267,6 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
       if ((cursorX+(chunkWidth*1)) > (documentSize[0]- margin[0] -margin[2])) {
         if (!render) {
           doesntFit = true
-          console.log('doesnt fit')
-          console.log((cursorX+(chunkWidth*1)+actSpacing+(columnSpacing*1)+20), (documentSize[0]- margin[0] -margin[2]) )
           break
         }
       }
@@ -277,8 +275,6 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
     if ((cursorX+(chunkWidth*1)) > (documentSize[0]- margin[0] -margin[2])) {
       if (!render) {
         doesntFit = true
-        console.log('doesnt fit')
-        console.log((cursorX+(chunkWidth*1)+actSpacing+(columnSpacing*1)+20), (documentSize[0]- margin[0] -margin[2]) )
         break
       }
     }
@@ -286,10 +282,8 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
 
 
     if (i == chunks.length-1) {
-      console.log(doesntFit)
       columnsFit = true
       if (!render) {
-      console.log((cursorX+(chunkWidth*1)+actSpacing+(columnSpacing*1)+20), (documentSize[0]- margin[0] -margin[2]) )
       }
     }
     if (render) {
@@ -341,7 +335,16 @@ const renderScript = (options = {}) => {
     doc.registerFont('bold',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Bold.ttf'))
     doc.registerFont('extrabold',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Extrabold.ttf'))
     doc.registerFont('black',     path.join(__dirname, '..', '..', '..', 'fonts', 'wonder-unit-sans', 'WonderUnitSans-Black.ttf'))
-    let stream = doc.pipe(fs.createWriteStream(options.outputPath))
+
+    let outputFileName
+    let fName = []
+    let title = script.title.replace(/<(?:.|\n)*?>/gm, '')
+    fName.push(title)
+    fName.push('Outline')
+    fName.push(moment().format("MMM Do YYYY"))
+    outputFileName = path.join(options.outputPath, fName.join(' - ').replace(/[/\\?%*:|"<>]/g, ' ') + '.pdf')
+
+    let stream = doc.pipe(fs.createWriteStream(outputFileName))
     // try to layout, if too large, increment columnCount and try again
     let columnCount = 3
     let columnsFit = false
@@ -352,27 +355,17 @@ const renderScript = (options = {}) => {
     }
 
     columnCount -= 0.02
-    console.log(columnCount)
     //columnCount = 9.26
-
-    console.log('zoinks 1')
 
     layoutChunks(script.chunks, columnCount, doc, documentSize, true, margin)
 
-    console.log('zoinks 2')
-
     doc.fontSize(documentSize[0]/columnCount*.15)
     doc.font('black')
-    console.log('zoinks A', (documentSize[0]/columnCount*.15))
     let titleWidth = doc.widthOfString(script.title)
-    console.log('zoinks A', titleWidth,script.title)
-      let titleHeight = doc.heightOfString(script.title, {width: titleWidth})
+    let titleHeight = doc.heightOfString(script.title, {width: titleWidth})
 
-
-    console.log('zoinks A')
     doc.text(script.title, doc.page.width-margin[2]-titleWidth, doc.page.height-margin[3]-1.25-titleHeight, {lineBreak: false})
     let dateText = 'DRAFT: ' + moment().format('MMMM D, YYYY').toUpperCase() + '  //  ' + script.author
-    console.log('zoinks A')
 
     doc.fontSize(documentSize[0]/columnCount*.025)
     doc.font('thin')
@@ -380,7 +373,6 @@ const renderScript = (options = {}) => {
     doc.text(dateText, doc.page.width-margin[2]-400, doc.page.height-margin[3]-1.25-dateHeight-titleHeight-(documentSize[0]/columnCount*.01), {lineBreak: false, align: 'right', width: 400})
     doc.fontSize(10)
     doc.font('thin')
-    console.log('zoinks d')
 
     let logoWidth = doc.widthOfString('')
     doc.fontSize(5)
@@ -389,15 +381,13 @@ const renderScript = (options = {}) => {
     let sbWidth = doc.widthOfString('   //   Outliner')
     doc.fontSize(10)
 
-    console.log('zoinks f')
-
     doc.text('', doc.page.width-margin[2]-logoWidth-wuWidth-sbWidth-1.25, doc.page.height-margin[3]-1.25, {lineBreak: false})
     doc.fontSize(5)
     doc.text(' WONDER UNIT', doc.page.width-margin[2]-wuWidth-sbWidth, doc.page.height-margin[3]+0.5, {lineBreak: false, characterSpacing: 1})
     doc.fontSize(6)
     doc.text('   //   Outliner', doc.page.width-margin[2]-sbWidth, doc.page.height-margin[3], {lineBreak: false})
     stream.on('finish', () => {
-      doneCallback({string: "done!", chatID: chatID})
+      doneCallback({string: "done!", chatID: chatID, outputFileName: outputFileName})
       finishedCallback()
       resolve()
     })
@@ -407,14 +397,11 @@ const renderScript = (options = {}) => {
 
 const getSettings = () => {
   let settings = [
-    { type: 'title', text: 'Export a script pdf' },
-    { type: 'description', text: 'Export a script pdf' },
-    { id: 'includeAct', label: 'Include Act', type: 'checkbox', default: true },
-    { id: 'includeNotes', label: 'Include Notes', type: 'checkbox', default: true },
-    { id: 'includeSeconds', label: 'Include Seconds', type: 'checkbox', default: true },
-    { id: 'includeTodo', label: 'Include TODO', type: 'checkbox', default: false },
-    { id: 'includeRough', label: 'Include ROUGH', type: 'checkbox', default: false },
-    { id: 'includeComplete', label: 'Include COMPLETE', type: 'checkbox', default: false },
+    { type: 'title', text: 'Export an Outline' },
+    { type: 'description', text: 'Outline of the whole screenplay based on Acts, Sequences, and Scenes.' },
+    { id: 'outlinePageSize', label: 'Page Size', type: 'dropdown', values: [{text: 'Letter', value: 'letter'}, {text: '18x24', value: '18x24'}, {text: '24x36', value: '24x36'}, {text: '36x48', value: '36x48'}], default: 1 },
+    { type: 'spacer' },
+    { id: 'outlineIncludeSynopses', label: 'Include Synopses', type: 'checkbox', default: true },
   ]
   return settings
 }

@@ -1,6 +1,8 @@
 const fs = require('fs')
 const path = require('path')
 
+const { app } = require('electron').remote
+
 const fountainParse = require('../fountain-parse')
 const generateScriptPdf = require('../generate-script-pdf')
 
@@ -57,6 +59,9 @@ const generate = async (options = {}) => {
   let characters = {}
   let locations = {}
 
+  let currentCharacter = null
+  let characterLines = {}
+
   for (var i = 0; i < scriptData.script.length; i++) {
     if (scriptData.script[i].plainText) {
       switch (scriptData.script[i].type) {
@@ -90,10 +95,14 @@ const generate = async (options = {}) => {
         case 'character':
           wordCount += getWordCount(scriptData.script[i].plainText)
           let character = titleCase(scriptData.script[i].plainText).split('(')[0].split(' AND ')[0].trim()
+          currentCharacter = character
           if (characters[character] == undefined) {
             characters[character] = 1
           } else {
             characters[character]++
+          }
+          if (characterLines[character] == undefined) {
+            characterLines[character] = []
           }
           break
         case 'parenthetical':
@@ -103,6 +112,7 @@ const generate = async (options = {}) => {
         case 'dialogue':
           wordCount += getWordCount(scriptData.script[i].plainText)
           duration += getDurationOfWords(scriptData.script[i].plainText, 300)+1000
+          characterLines[currentCharacter].push(scriptData.script[i].plainText)
           break
         case 'inline_note':
           noteCount++
@@ -114,8 +124,23 @@ const generate = async (options = {}) => {
 
           break
         default:
-          //console.log(scriptData.script[i].type)
       }
+    }
+  }
+
+  // save files for the character lines:
+  let outputDirectory = app.getPath('documents')
+  for (let characterKey in  characterLines) {
+    if (characterLines[characterKey].length > 14) {
+      let linesText = ''
+      for (let i = 0; i<characterLines[characterKey].length; i++ ) {
+        linesText += characterLines[characterKey][i] + "\n\n"
+      }
+      fs.writeFile(path.join(outputDirectory, characterKey + ' - lines.fountain'), linesText, function(err) {
+        if(err) {
+          return
+        }
+      })
     }
   }
 
@@ -149,7 +174,6 @@ const diff = (stats1, stats2) => {
 
     if (stats1.title !== stats2.title) {
       changeMessage.push('Changed title to <strong>' + stats1.title + '</strong> from ' + stats2.title + '.')
-      console.log('title', stats1.title, stats2.title)
     }
 
     let currentScene = 0
@@ -164,7 +188,6 @@ const diff = (stats1, stats2) => {
           }
           if (stats1.scriptData.script[i].text !== stats2.scriptData.script[i].text) {
             changeMessage.push('Edited Scene <strong>' + currentScene + ' - ' + sceneName + '</strong> around, "' + stats1.scriptData.script[i].plainText.substring(0,50) + '..."')
-            console.log('script', currentScene, sceneName, stats1.scriptData.script[i],  stats2.scriptData.script[i])
             break
           }
         }
@@ -172,8 +195,6 @@ const diff = (stats1, stats2) => {
     }
 
     if (stats1.sceneCount !== stats2.sceneCount) {
-      console.log('sceneCount', stats1.sceneCount, stats2.sceneCount)
-
       let diff = stats1.sceneCount - stats2.sceneCount
       let verb
       if (diff > 0) {
@@ -182,12 +203,9 @@ const diff = (stats1, stats2) => {
         verb = 'Removed'
       }
       changeMessage.push(verb + ' ' + Math.abs(diff) + ' scenes.')
-
     }
 
     if (stats1.locations.length !== stats2.locations.length) {
-      console.log('locations', stats1.locations.length, stats2.locations.length)
-
       let diff = stats1.locations.length - stats2.locations.length
       let verb
       if (diff > 0) {
@@ -196,13 +214,9 @@ const diff = (stats1, stats2) => {
         verb = 'Removed'
       }
       changeMessage.push(verb + ' ' + Math.abs(diff) + ' locations.')
-
-
     }
 
     if (stats1.characters.length !== stats2.characters.length) {
-      console.log('characters', stats1.characters.length, stats2.characters.length)
-
       let diff = stats1.characters.length - stats2.characters.length
       let verb
       if (diff > 0) {
@@ -211,16 +225,9 @@ const diff = (stats1, stats2) => {
         verb = 'Removed'
       }
       changeMessage.push(verb + ' ' + Math.abs(diff) + ' characters.')
-
-
     }
 
-
-
-
     if (stats1.wordCount !== stats2.wordCount) {
-      console.log('wordCount', stats1.wordCount, stats2.wordCount)
-
       let diff = stats1.wordCount - stats2.wordCount
       let verb
       if (diff > 0) {
@@ -229,13 +236,9 @@ const diff = (stats1, stats2) => {
         verb = 'Removed'
       }
       changeMessage.push(verb + ' ' + Math.abs(diff) + ' words.')
-
     }
 
-
     if (Math.round(stats1.duration/1000/60) !== Math.round(stats2.duration/1000/60)) {
-      console.log('duration', stats1.duration, stats2.duration)
-
       let diff = stats1.duration - stats2.duration
       let verb
       if (diff > 0) {
@@ -247,8 +250,6 @@ const diff = (stats1, stats2) => {
     }
 
     if (stats1.pageCount !== stats2.pageCount) {
-      console.log('pageCount', stats1.pageCount, stats2.pageCount)
-
       let diff = stats1.pageCount - stats2.pageCount
       let verb
       if (diff > 0) {
@@ -260,8 +261,6 @@ const diff = (stats1, stats2) => {
     }
 
     if (stats1.noteCount !== stats2.noteCount) {
-      console.log('noteCount', stats1.noteCount, stats2.noteCount)
-
       let diff = stats1.noteCount - stats2.noteCount
       let verb
       if (diff > 0) {
@@ -271,7 +270,6 @@ const diff = (stats1, stats2) => {
       }
       changeMessage.push(verb + ' ' + Math.abs(diff) + ' notes.')
     }
-
 
     diffStats.changeMessage = changeMessage.join(' ')
 

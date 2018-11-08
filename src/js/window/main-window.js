@@ -13,6 +13,7 @@ const generateScriptPdf = require('../tasks/generate-script-pdf')
 const generateOutlinePdf = require('../tasks/generate-outline-pdf')
 const generateReader = require('../tasks/generate-reader')
 const generateSceneList = require('../tasks/generate-scene-list')
+const generateTreatment = require('../tasks/generate-treatment')
 
 const agent = require('../agent')
 const chatInterface = require('../chat-interface')
@@ -176,37 +177,37 @@ const init = async () => {
 
   generatorButton.createButton('#generateScriptPdf', generateScriptPdf, prefs, {
     inputPath: scriptPath,
-    outputPath: path.join(outputDirectory, 'script.pdf'),
+    outputPath: outputDirectory,
     progressCallback: (event) => {
       chatInterface.agentOutput('Generating Script PDF: ' + event.string, event.chatID)
     },
     doneCallback: (event) => {
       chatInterface.agentOutput('Finished generating Script PDF. Showing in folder.', event.chatID)
-      shell.openItem(path.join(outputDirectory, 'script.pdf'))
+      shell.openItem(event.outputFileName)
     }
   })
 
   generatorButton.createButton('#generateOutlinePdf', generateOutlinePdf, prefs, {
     inputPath: scriptPath,
-    outputPath: path.join(outputDirectory, 'outline.pdf'),
+    outputPath: outputDirectory,
     progressCallback: (event) => {
       chatInterface.agentOutput('Generating Outline: ' + event.string, event.chatID)
     },
     doneCallback: (event) => {
       chatInterface.agentOutput('Finished generating Outline PDF. Showing in folder.', event.chatID)
-      shell.openItem(path.join(outputDirectory, 'outline.pdf'))
+      shell.openItem(event.outputFileName)
     }
   })
 
   generatorButton.createButton('#generateReader', generateReader, prefs, {
     inputPath: scriptPath,
-    outputPath: path.join(outputDirectory, 'output.mp3'),
+    outputPath: outputDirectory,
     progressCallback: (event) => {
       chatInterface.agentOutput('Generating Reader MP3: ' + event.string, event.chatID)
     },
     doneCallback: (event) => {
       chatInterface.agentOutput('Finished generating Reader MP3. Showing in folder.', event.chatID)
-      shell.showItemInFolder(path.join(outputDirectory, 'output.mp3'))
+      shell.showItemInFolder(event.outputFileName)
     }
   })
 
@@ -219,6 +220,22 @@ const init = async () => {
     doneCallback: (event) => {
       chatInterface.agentOutput('Finished generating Scene List CSV. Showing in folder.', event.chatID)
       shell.showItemInFolder(path.join(outputDirectory, 'scene-list.csv'))
+    }
+  })
+
+  generatorButton.createButton('#generateTreatment', generateTreatment, prefs, {
+    inputPath: scriptPath,
+    outputPath: outputDirectory,
+    progressCallback: (event) => {
+      chatInterface.agentOutput('Generating Treatment: ' + event.string, event.chatID)
+    },
+    doneCallback: (event) => {
+      chatInterface.agentOutput('Finished generating treatment. Showing in folder.', event.chatID)
+      shell.openItem(event.outputFileName)
+    },
+    doneAudioCallback: (event) => {
+      chatInterface.agentOutput('Finished generating treatment audio. Showing in folder.', event.chatID)
+      shell.showItemInFolder(event.outputFileName)
     }
   })
 

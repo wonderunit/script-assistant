@@ -2,7 +2,7 @@ const utils = require('./wonder-utils')
 
 let stats
 
-// welcome 
+// welcome
 // what do you think?
 
 const titleCritique = () => {
@@ -20,9 +20,7 @@ let notes = []
 
 
 const update = (incomingStats) => {
-  console.log("SETTING!!")
   stats = incomingStats
-  console.log(stats)
 
   let currentCharacter
   let currentScene = 0
@@ -44,8 +42,6 @@ const update = (incomingStats) => {
   }
 
 
-  console.log(characterQuotes)
-  console.log(sceneQuotes)
 }
 
 const welcome = () => {
@@ -53,7 +49,7 @@ const welcome = () => {
   // I can't wait to get started working on ____ today.
   // What do you think ____,_____, and _____ are going to be up to next?
   // Let's get working on _______
-  // 
+  //
 }
 
 const whatIThink = () => {
@@ -90,7 +86,7 @@ const whatIThink = () => {
   }
   let quote = sceneQuotes[foundScene].randomElement()
   let text = 'You know scene ' + foundScene + ', ' + stats.sceneList[foundScene].slugline + ' where ' + quote.character + ' says, "' + quote.quote + '"?'
-  console.log(text)
+  //console.log(text)
 
   // CHARACTER
   let importantChar = 0
@@ -102,8 +98,8 @@ const whatIThink = () => {
   }
   let charNumber = Math.round(Math.random()*(importantChar-1))
   let characterQuote = characterQuotes[stats.characters[charNumber][0].toUpperCase()].randomElement()
-  
-  console.log(characterQuote)
+
+  //console.log(characterQuote)
 
 
 }

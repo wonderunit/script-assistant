@@ -8,8 +8,8 @@ const electronUtil = require('electron-util')
 const moment = require('moment')
 const { app, shell } = require('electron').remote
 
-const fountainParse = require('../fountain-parse')
-const generateStats = require('../generate-stats')
+const fountainParse = require('./fountain-parse')
+const generateStats = require('./generate-stats')
 
 const ffmpegPath = electronUtil.fixPathForAsarUnpack(ffmpeg.path)
 const execa = require('execa')
@@ -64,6 +64,7 @@ const renderTTS = (scriptAtom) => {
       scriptAtom.plainText = scriptAtom.plainText.toLowerCase()
       break
     case 'action':
+    case 'synopsis':
     case 'transition':
       if (scriptAtom.plainText) {
         if (scriptAtom.plainText.startsWith("NOTE")) {
@@ -131,13 +132,12 @@ const renderTTS = (scriptAtom) => {
     audioConfig.speakingRate = '1.1'
   }
 
-  if (scriptAtom.plainText) { scriptAtom.plainText = scriptAtom.plainText.replace(/MR./g, "Mister") }
+  if (scriptAtom.plainText) { scriptAtom.plainText = scriptAtom.plainText.replace(/Mr./g, "Mister").replace(/MR./g, "Mister") }
 
   return new Promise ((resolve, reject) => {
     if (scriptAtom.type == 'property') {
       resolve({type: 'property', plainText: scriptAtom.plainText})
     }
-
 
     let request = {
       input: {
@@ -209,7 +209,8 @@ const renderScene = async (scriptArray, progressString, sceneNumber) => {
           case 'scene_heading':
             args = args.concat(['-i', '"' + path.join(app.getPath('userData'), 'exports', 'events', 'scene3.aiff') + '"'])
             break
-          case 'action':
+            case 'action':
+            case 'synopsis':
             if (arrayOfResults[i].plainText.startsWith('- ')) {
               args = args.concat(['-i', '"' + path.join(app.getPath('userData'), 'exports', 'events', 'bullet2.aiff') + '"'])
             }
@@ -259,6 +260,14 @@ const renderScene = async (scriptArray, progressString, sceneNumber) => {
               filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.4[s' + currentSoundIndex + '];')
               currentOffset += 200
               afterDelay = 0
+              currentSoundIndex++
+            }
+            break
+          case 'synopsis':
+            if (arrayOfResults[i].plainText.startsWith('- ')) {
+              filter.push('[' + currentSoundIndex + ']adelay=' + currentOffset + '|' + currentOffset + ',volume=0.4[s' + currentSoundIndex + '];')
+              currentOffset += 200
+              afterDelay = 200
               currentSoundIndex++
             }
             break
@@ -333,15 +342,15 @@ const renderScene = async (scriptArray, progressString, sceneNumber) => {
 }
 
 let progressCallback
-let doneCallback
+let doneAudioCallback
 let finishedCallback
 let chatID
 
 let inputPath
 
-const generate = async (options = {}) => {
+const generate = async (scriptArray, outputFileName, options = {}) => {
   progressCallback = options.progressCallback
-  doneCallback = options.doneCallback
+  doneAudioCallback = options.doneAudioCallback
   finishedCallback = options.finishedCallback
   chatID = options.chatID
 
@@ -349,119 +358,20 @@ const generate = async (options = {}) => {
 
   setUpDirectories()
 
+  inputPath = options.inputPath
+
   let asarPath = app.getAppPath()
   fs.copyFileSync(path.join(asarPath, 'src/sounds/events/scene3.aiff'), path.join(app.getPath('userData'), 'exports', 'events', 'scene3.aiff'))
   fs.copyFileSync(path.join(asarPath, 'src/sounds/events/bullet2.aiff'), path.join(app.getPath('userData'), 'exports', 'events', 'bullet2.aiff'))
 
   progressCallback({string: "started", chatID: chatID})
 
-  inputPath = options.inputPath
-  let contents = fs.readFileSync(options.inputPath, "utf8");
-  let scriptData = fountainParse.parse(contents, options.inputPath)
-  let scriptArray = [[]]
-  let currentScene = 0
-  for (var i = 0; i < scriptData.script.length; i++) {
-    switch(scriptData.script[i].type) {
-      case 'centered':
-      case 'action':
-      case 'property':
-      case 'character':
-      case 'dialogue':
-      case 'parenthetical':
-      case 'transition':
-        scriptArray[currentScene].push(scriptData.script[i])
-        break
-      case 'scene_heading':
-        scriptArray.push([scriptData.script[i]])
-        currentScene++
-    }
-  }
-  let renderSceneTasks = []
-  let fromScene
-  let toScene
-
-
-  let outputFileName
-  let fName = []
-  let title = ''
-  for (let i = 0; i < scriptData.title.length; i++) {
-    if (scriptData.title[i].type == "title") {
-      title = scriptData.title[i].plainText.replace(/<(?:.|\n)*?>/gm, '')
-    }
-  }
-  fName.push(title)
-  fName.push('Table Read')
-  if (!settings.readerRenderWholeScript) {
-    fName.push('Scene ' + settings.readerRenderSpecificScenes)
-  }
-  fName.push(moment().format("MMM Do YYYY"))
-
-  outputFileName = path.join(options.outputPath, fName.join(' - ').replace(/[/\\?%*:|"<>]/g, ' ') + '.mp3')
-
-  if (settings.readerRenderSpecificScenes) {
-    let parse = settings.readerRenderSpecificScenes.split('-')
-    if (parse.length > 1) {
-      fromScene = Number(parse[0])
-      toScene = Number(parse[1])+1
-    } else {
-      fromScene = Number(parse[0])
-      toScene = Number(parse[0])+1
-    }
-  }
-
-  if (settings.readerRenderWholeScript) {
-    fromScene = 0
-    toScene = scriptArray.length
-  }
-
-  if (settings.readerReadFast) {
-    talkingFast = true
-  } else {
-    talkingFast = false
-  }
-
-  renderTitlePage = settings.readerRenderTitlePage
-
   let arrayOfResults = []
   let totalDuration = 0
-  for (var i = fromScene; i < toScene; i++) {
-    let result = await renderScene(scriptArray[i], 'Scene ' + i + ' of ' + toScene + '. ', i)
+  for (var i = 0; i < scriptArray.length; i++) {
+    let result = await renderScene(scriptArray[i], 'Scene ' + (i+1) + ' of ' + scriptArray.length + '. ', i)
     totalDuration += result.duration
     arrayOfResults.push(result)
-  }
-
-  let stats = await generateStats.generate(options)
-
-  // render title page
-  if (scriptData.title && fromScene == 0 && settings.readerRenderTitlePage) {
-    let scene = []
-    let author
-    for (var i = 0; i < scriptData.title.length; i++) {
-      switch(scriptData.title[i].type) {
-        case 'title':
-          scene.push({plainText: scriptData.title[i].plainText, type: scriptData.title[i].type})
-          break
-        case 'author':
-          scene.push({plainText: 'Written by ' + scriptData.title[i].plainText, type: 'action'})
-          author = scriptData.title[i].plainText
-          break
-        case 'draft_date':
-          scene.push({plainText: 'Draft dated: ' + scriptData.title[i].plainText, type: 'action'})
-          break
-        case 'revision':
-          scene.push({plainText: scriptData.title[i].plainText, type: 'action'})
-          break
-        case 'property':
-          scene.push(scriptData.title[i])
-          break
-      }
-    }
-    scene.push({plainText: stats.pageCount + ' pages.', type: 'action'})
-    scene.push({plainText: 'Approximate screen time: ' + Math.round(stats.duration/1000/60) + ' minutes.', type: 'action'})
-    scene.push({plainText: 'This reading is ' + Math.round(totalDuration/60) + ' minutes.', type: 'action'})
-    scene.push({plainText: 'If you have any questions or comments, please dont hesitate to email ' + author + '. Thank you.', type: 'dialogue'})
-    let result = await renderScene(scene, 'Title page. ')
-    arrayOfResults.unshift(result)
   }
 
   let args = []
@@ -498,7 +408,7 @@ const generate = async (options = {}) => {
     if (code !== 0) {
       throw new Error(`Could not use ffmpeg. Failed with error ${code}`)
     } else {
-      doneCallback({string: "done", chatID: chatID, outputFileName: outputFileName})
+      doneAudioCallback({string: "done", chatID: chatID, outputFileName: outputFileName})
       finishedCallback()
     }
   })
@@ -508,27 +418,6 @@ const generate = async (options = {}) => {
   })
 }
 
-const getSettings = () => {
-  let settings = [
-    { type: 'title', text: 'Export a reading MP3' },
-    { type: 'description', text: 'Listen to your scenes as a table read from voices. This is very useful for listen to you scenes from a different voice.' },
-    { type: 'spacer' },
-    { type: 'description', text: 'Warning: This can take a while to export if doing the first time. Subsequently, it will export faster.' },
-
-
-    { id: 'readerRenderTitlePage', label: 'Include Title Page', type: 'checkbox', default: true },
-    { id: 'readerReadFast', label: 'Read Fast', type: 'checkbox', default: true },
-    { id: 'readerRenderWholeScript', label: 'Render Whole Script', type: 'checkbox', default: true },
-    { type: 'spacer' },
-    { id: 'readerRenderSpecificScenes', label: 'Render Specific Scenes (5 or 0-12)', type: 'range', default: '0-3' },
-  ]
-  return settings
-}
-
-// /Users/setpixel/git/scriptreader/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg -i output.mp3 -filter_complex "[0:a]avectorscope=s=480x480:zoom=1.5:rc=0:gc=200:bc=0:rf=0:gf=40:bf=0,format=yuv420p[v];  [v]pad=854:480:187:0[out]" -map "[out]" -map 0:a -b:v 700k -b:a 360k OUTPUT_VIDEO.mp4
-// /Users/setpixel/git/scriptreader/node_modules/@ffmpeg-installer/darwin-x64/ffmpeg -i output.mp3 -filter_complex "[0:a]showspectrum=s=854x480:mode=combined:slide=scroll:saturation=0.2:scale=log,format=yuv420p[v]" -map "[v]" -map 0:a -b:v 700k -b:a 360k OUTPUT.mp4
-
 module.exports = {
   generate,
-  getSettings
 }
