@@ -55,6 +55,7 @@ const generate = async (options = {}) => {
     showLineNumbers: options.settings.scriptShowLineNumbers,
     showNotes: options.settings.scriptIncludeNotes,
     showImages: options.settings.scriptIncludeImages,
+    includeImageSheets: options.settings.scriptIncludeImageSheets,
     showOutside: true,
     titlePage: options.settings.scriptIncludeTitlePage,
     inputPath: options.inputPath,
@@ -140,6 +141,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
     let pageCount = options.pageCount || ''
     let showNotes = options.showNotes || false
     let showImages = options.showImages || false
+    let includeImageSheets = options.includeImageSheets || false
     let showLineNumbers = options.showLineNumbers
     let showOutside = options.showOutside || false
     let titlePage = options.titlePage
@@ -201,6 +203,29 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         }
       }
     }
+
+    if (includeImageSheets && render) {
+      for (let i = 0; i < scriptData.script.length; i++) {
+        if (scriptData.script[i].type == 'property') {
+          let prop = scriptData.script[i].formattedText.split(': ')
+          if (prop[0].toLowerCase() == 'image') {
+            if (options.inputPath) {
+              let filename = prop[1].trim()
+              let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
+
+              if (!imageHash[imagesrc + 'large']) {
+                progressCallback({string: 'Resizing sheet image: ' + Math.round(((i+1)/scriptData.script.length)*100) + '%', chatID: chatID})
+                let value = await Jimp.read(imagesrc)
+                let image = await value.resize(Math.round((documentSize[0]-(72*2))*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
+                imageHash[imagesrc + 'large'] = image
+              }
+
+            }
+          }
+        }
+      }
+    }
+
 
     let currentScene = 0
 
@@ -746,10 +771,10 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
       let hasDraftDate = false
 
       if (imageHash['titleImage'] && showImages) {
-        let width = documentSize[0]-100
+        let width = documentSize[0]-(72*2)
         let height = width*(1/2.35)
         yCursor = yCursor-(height/2)
-        doc.image(imageHash['titleImage'], documentSize[0]-width-(100/2), yCursor, {width: width})
+        doc.image(imageHash['titleImage'], documentSize[0]-width-(50), yCursor, {width: width})
         yCursor += height + (72/4)
       }
 
@@ -767,6 +792,8 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
 
       //
 
+      let width = documentSize[0]-(72*2)
+      let left = documentSize[0]-width-50
 
       for (let i = 0; i < scriptData.title.length; i++) {
         switch (scriptData.title[i].type) {
@@ -774,16 +801,16 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             doc.fillColor('black')
             doc.font('black')
             doc.fontSize(55)
-            tHeight = doc.heightOfString(scriptData.title[i].plainText, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
-            doc.text(scriptData.title[i].plainText, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
+            tHeight = doc.heightOfString(scriptData.title[i].plainText, left, yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'center'})
+            doc.text(scriptData.title[i].plainText, left, yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'center'})
             yCursor += tHeight + 10
             break
           case 'author':
             doc.fillColor('black')
             doc.font('bold')
             doc.fontSize(12)
-            tHeight = doc.heightOfString(scriptData.title[i].plainText, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
-            doc.text('by ' + scriptData.title[i].plainText, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
+            tHeight = doc.heightOfString(scriptData.title[i].plainText, left, yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'center'})
+            doc.text('by ' + scriptData.title[i].plainText, left, yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'center'})
             yCursor += tHeight + 10
             break
           case 'draft_date':
@@ -802,8 +829,8 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             doc.fillColor('black')
             doc.font('regular')
             doc.fontSize(8)
-            tHeight = doc.heightOfString(scriptData.title[i].plainText, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
-            doc.text(string, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
+            tHeight = doc.heightOfString(scriptData.title[i].plainText, left, yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'center'})
+            doc.text(string, left, yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'center'})
             yCursor += tHeight + 10
             break
         }
@@ -817,11 +844,47 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
         doc.fillColor('black')
         doc.font('regular')
         doc.fontSize(8)
-        tHeight = doc.heightOfString(string, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
-        doc.text(string, 0, yCursor, {width: (8.5*72), lineBreak: false, lineGap: 0, align: 'center'})
+        tHeight = doc.heightOfString(string, left, yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'center'})
+        doc.text(string, left, yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'center'})
       }
 
       doc.addPage()
+    }
+
+    if (includeImageSheets && render) {
+
+      let sectionCurrent
+
+      let currentImage = 0
+
+      for (let i = 0; i < scriptData.script.length; i++) {
+        if (scriptData.script[i].type == 'section') {
+          sectionCurrent = scriptData.script[i].plainText
+        }
+        if (scriptData.script[i].type == 'property') {
+          let prop = scriptData.script[i].formattedText.split(': ')
+          if (prop[0].toLowerCase() == 'image') {
+            if (options.inputPath) {
+              let filename = prop[1].trim()
+              let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
+              let width = documentSize[0]-(72*2)
+              let height = width*(1/2.35)
+              yCursor = 50 + ((currentImage % 3 )*(height + 35))
+              doc.image(imageHash[imagesrc + 'large'], documentSize[0]-width-(100/2), yCursor, {width: width})
+              yCursor += height + 5
+              doc.font('regular')
+              doc.fontSize(8)
+              doc.text(sectionCurrent.toUpperCase(), documentSize[0]-width-(100/2), yCursor, {width: width, lineBreak: false, lineGap: 0, align: 'right'})
+              currentImage++
+              if (currentImage % 3 == 0 ) {
+                doc.addPage()
+              }
+            }
+          }
+        }
+      }
+      doc.addPage()
+      yCursor = 0
     }
 
     if (render) {
@@ -985,6 +1048,7 @@ const getSettings = () => {
     { id: 'scriptShowLineNumbers', label: 'Show line numbers', type: 'checkbox', default: true },
     { id: 'scriptIncludeNotes', label: 'Show Notes', type: 'checkbox', default: true },
     { id: 'scriptIncludeImages', label: 'Show Images', type: 'checkbox', default: true },
+    { id: 'scriptIncludeImageSheets', label: 'Include Pages of Images', type: 'checkbox', default: false },
     { type: 'spacer' },
     { id: 'scriptWatermarkString', label: 'Watermark for the script', type: 'string', default: '' },
   ]

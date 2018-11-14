@@ -11,6 +11,7 @@ const reader = require('../reader.js')
 
 
 let imageHash = {}
+let fountainString
 
 const getWordCount = (text) => {
   if (!text) return 0
@@ -92,6 +93,9 @@ const generate = async (options = {}) => {
   let stream
 
   let outputFileName
+  let outputAudioFileName
+  let outputFountainFileName
+
   let fName = []
   let title = ''
   for (let i = 0; i < scriptData.title.length; i++) {
@@ -108,6 +112,7 @@ const generate = async (options = {}) => {
 
   outputFileName = path.join(options.outputPath, fName.join(' - ').replace(/[/\\?%*:|"<>]/g, ' ') + '.pdf')
   outputAudioFileName = path.join(options.outputPath, fName.join(' - ').replace(/[/\\?%*:|"<>]/g, ' ') + '.mp3')
+  outputFountainFileName = path.join(options.outputPath, fName.join(' - ').replace(/[/\\?%*:|"<>]/g, ' ') + '.fountain')
 
   stream = doc.pipe(fs.createWriteStream(outputFileName))
 
@@ -115,6 +120,8 @@ const generate = async (options = {}) => {
   doneCallback = options.doneCallback
   finishedCallback = options.finishedCallback
   chatID = options.chatID
+
+  fountainString = ''
 
   progressCallback({string: "started", chatID: chatID})
 
@@ -264,21 +271,25 @@ const generate = async (options = {}) => {
     let width = documentSize[0] - marginLeft - marginRight
     let string
 
+    let imageCount = 0
+
     for (let i = 0; i < chunk.length; i++) {
       switch (chunk[i].type) {
         case 'act':
+          imageCount = 0
           doc.fontSize(8)
           doc.font('thin')
           string = chunk[i].text
           if (render) {
             doc.text(string, xCursor, yCursor+height , {width: width, lineBreak: true, lineGap: 0, align: 'left'})
 
+            fountainString += "# " + string + "\n\n"
+
+
             if (scene.length > 0 ) {
               scriptReadArray.push(scene)
               scene = []
-              console.log('ADDDED!!!')
             }
-            console.log("ACT~!", scriptReadArray)
             scene.push({plainText: string.toLowerCase(), type: 'scene_heading'})
 
             doc.lineWidth(3)
@@ -292,31 +303,37 @@ const generate = async (options = {}) => {
           height += 20
           break
         case 'sequence':
+          imageCount = 0
           doc.fontSize(16)
           doc.font('black')
           string = chunk[i].text
           if (render) {
             doc.text(string, xCursor, yCursor+height , {width: width, lineBreak: true, lineGap: 0, align: 'left'})
             scene.push({plainText: '', type: 'action'})
+            fountainString += "## " + string + "\n\n"
           }
           height += doc.heightOfString(string, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
           height += 2
           break
         case 'scene_heading':
+          imageCount = 0
           doc.fontSize(6)
           doc.font('thin')
           string = chunk[i].text
           if (render) {
             doc.text(string, xCursor, yCursor+height , {width: width, lineBreak: true, lineGap: 0, align: 'left'})
+            fountainString += string + "\n\n"
           }
           height += doc.heightOfString(string, {width: width, lineBreak: true, lineGap: 0, align: 'left'})
           height += 3
           break
         case 'synopsis':
+          imageCount = 0
           doc.fontSize(12)
           doc.font('regular')
           string = chunk[i].text
           if (render) {
+            fountainString += "= " + string + "\n\n"
             doc.text(string, xCursor, yCursor+height , {width: width, lineBreak: true, lineGap: 2, align: 'left'})
             scene.push({plainText: '- ' + string, type: 'synopsis'})
           }
@@ -326,10 +343,21 @@ const generate = async (options = {}) => {
         case 'image':
           if (showImages) {
             if (render) {
-              doc.image(imageHash[chunk[i].text], xCursor, yCursor+height, {width: widthM})
+              if (imageCount % 2 == 0) {
+                doc.image(imageHash[chunk[i].text], xCursor, yCursor+height, {width: widthM})
+              } else {
+                height -= widthM*(1/2.35)
+                height -= 5
+
+                doc.image(imageHash[chunk[i].text], xCursor + widthM + 5, yCursor+height, {width: widthM})
+
+              }
+
             }
             height += widthM*(1/2.35)
             height += 5
+            imageCount++
+
           }
           break
 
@@ -525,6 +553,13 @@ const generate = async (options = {}) => {
   progressCallback({string: "writing", chatID: chatID})
 
   doc.end()
+
+
+  fs.writeFileSync(outputFountainFileName, fountainString, function(err) {
+    if(err) {
+      return console.log(err);
+    }
+  })
 
   stream.on('finish', () => {
     doneCallback({string: "done!", chatID: chatID, outputFileName: outputFileName})

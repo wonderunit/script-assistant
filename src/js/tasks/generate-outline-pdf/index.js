@@ -4,6 +4,10 @@ const pdfDocument = require('pdfkit')
 const moment = require('moment')
 const fountainParse = require('../fountain-parse')
 
+let includeSynopses
+let includeNotes
+let columnOverride
+
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
   let scriptData = fountainParse.parse(contents, filepath)
@@ -36,10 +40,6 @@ const parseScript = (filepath) => {
 
   if (hasSections) {
     for (var i = 0; i < scriptData.script.length; i++) {
-      if (mode == "scene" && !sceneHasImage && sequence.length > 0 && scriptData.script[i].type !== "property") {
-        sceneHasImage = true
-        sequence.push({type: "image", text: 'blank'})
-      }
       if (scriptData.script[i].type == "property") {
         if (scriptData.script[i].text.split(':')[0].trim() == "image") {
           sceneHasImage = true
@@ -47,6 +47,15 @@ const parseScript = (filepath) => {
           let imagesrc = path.join(path.dirname(filepath),filename.toLowerCase())
           sequence.push({type: "image", text: imagesrc})
         }
+      }
+      if (scriptData.script[i].type == "synopsis" && includeSynopses) {
+        sequence.push({type: "synopsis", text: scriptData.script[i].text})
+      }
+      if (scriptData.script[i].type == "section") {
+        if (!sceneHasImage && sequence.length > 0 && mode == 'scene') {
+          sequence.push({type: "image", text: 'blank'})
+        }
+        mode = 'section'
       }
       if (scriptData.script[i].type == "section" && scriptData.script[i].depth == 1) {
         if (sequence.length > 0) {
@@ -64,21 +73,25 @@ const parseScript = (filepath) => {
       }
       if (scriptData.script[i].type == "scene_heading") {
         currentScene++
+        if (!sceneHasImage && sequence.length > 0 && mode == 'scene') {
+          sequence.push({type: "image", text: 'blank'})
+        }
         mode = 'scene'
         if (scriptData.script[i].text !== 'BLACK') {
-
           sceneHasImage = false
+        } else {
+          sceneHasImage = true
         }
         sequence.push({type: "scene", text: scriptData.script[i].text, number: currentScene})
       }
-      if (scriptData.script[i].type == "note") {
+      if (scriptData.script[i].type == "note" && includeNotes) {
         sequence.push({type: "note", text: scriptData.script[i].text})
       }
     }
   } else {
     for (var i = 0; i < scriptData.script.length; i++) {
       if (mode == "scene" && !sceneHasImage && sequence.length > 0 && scriptData.script[i].type !== "property") {
-        sceneHasImage = true
+
         sequence.push({type: "image", text: 'blank'})
       }
       if (scriptData.script[i].type == "property") {
@@ -104,7 +117,7 @@ const parseScript = (filepath) => {
         }
         sequence.push({type: "scene", text: scriptData.script[i].text, number: currentScene})
       }
-      if (scriptData.script[i].type == "note") {
+      if (scriptData.script[i].type == "note" && includeNotes) {
         sequence.push({type: "note", text: scriptData.script[i].text})
       }
     }
@@ -146,9 +159,13 @@ const renderChunk = (chunk, doc, width, x, y, render) => {
       atomText = chunk[i].text.replace(/~~/g, '').toUpperCase()
       if (render) {
         doc.save()
-        doc.fontSize(width*0.02)
-        doc.font('thin')
-        doc.text(chunk[i].number + '.', x-(width*0.04)-(width*0.015), y+ verticalCursor+(width*0.008), {width: width*0.04, align: 'right'})
+        // doc.fontSize(width*0.02)
+        // doc.font('thin')
+        // doc.text(chunk[i].number + '.', x-(width*0.04)-(width*0.015), y+ verticalCursor+(width*0.008), {width: width*0.04, align: 'right'})
+        doc.fontSize(width*0.06)
+        doc.font('regular')
+        doc.text(chunk[i].number + '.', x-(width*0.16)-(width*0.03), y+ verticalCursor+(width*0.008)-(width*(0.06*0.35)), {width: width*0.16, align: 'right'})
+
         doc.restore()
       }
     }
@@ -178,6 +195,11 @@ const renderChunk = (chunk, doc, width, x, y, render) => {
       doc.fontSize(width*0.035)
       doc.font('regular')
       paddingBottom = width*0.01
+    }
+    if (chunk[i].type == "synopsis") {
+      doc.fontSize(width*0.050)
+      doc.font('regular')
+      paddingBottom = width*0.04
     }
     if (chunk[i].type == "note") {
       doc.fontSize(width*0.025)
@@ -314,6 +336,11 @@ let finishedCallback
 let chatID
 
 const generate = async (options = {}) => {
+
+  includeSynopses = options.settings.outlineIncludeSynopses
+  includeNotes = options.settings.outlineIncludeNotes
+  columnOverride = options.settings.outlineColumnOverride
+
   progressCallback = options.progressCallback
   doneCallback = options.doneCallback
   finishedCallback = options.finishedCallback
@@ -321,6 +348,7 @@ const generate = async (options = {}) => {
   progressCallback({string: "started", chatID: chatID})
   renderScript(options)
 }
+
 
 const renderScript = (options = {}) => {
   return new Promise((resolve, reject) => {
@@ -355,7 +383,13 @@ const renderScript = (options = {}) => {
     }
 
     columnCount -= 0.02
-    //columnCount = 9.26
+    console.log(columnCount)
+
+    if (columnOverride) {
+      columnCount = Number(columnOverride)
+    }
+
+
 
     layoutChunks(script.chunks, columnCount, doc, documentSize, true, margin)
 
@@ -402,6 +436,9 @@ const getSettings = () => {
     { id: 'outlinePageSize', label: 'Page Size', type: 'dropdown', values: [{text: 'Letter', value: 'letter'}, {text: '18x24', value: '18x24'}, {text: '24x36', value: '24x36'}, {text: '36x48', value: '36x48'}], default: 1 },
     { type: 'spacer' },
     { id: 'outlineIncludeSynopses', label: 'Include Synopses', type: 'checkbox', default: true },
+    { id: 'outlineIncludeNotes', label: 'Include Notes', type: 'checkbox', default: false },
+    { type: 'spacer' },
+    { id: 'outlineColumnOverride', label: 'Column Override (9.85)', type: 'string', default: '' },
   ]
   return settings
 }
