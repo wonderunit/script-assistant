@@ -1,7 +1,7 @@
 {
   "name": "script-assistant",
   "productName": "Script Assistant",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The essential tool for a screenplay writer.",
   "main": "src/js/main.js",
   "scripts": {
@@ -74,7 +74,7 @@
   },
   "devDependencies": {
     "electron": "4.0.0-beta.7",
-    "electron-builder": "20.29.0",
+    "electron-builder": "20.34.0",
     "electron-rebuild": "^1.8.2"
   },
   "dependencies": {
