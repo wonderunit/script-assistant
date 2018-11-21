@@ -2,6 +2,8 @@ const fs = require('fs')
 const path = require('path')
 const pdfDocument = require('pdfkit')
 const moment = require('moment')
+const qr = require('qr-image')
+
 const fountainParse = require('../fountain-parse')
 
 const imageCache = require('../image-cache.js')
@@ -10,6 +12,8 @@ const imageCache = require('../image-cache.js')
 let includeSynopses
 let includeNotes
 let columnOverride
+
+let treatmentread
 
 const parseScript = (filepath) => {
   let contents = fs.readFileSync(filepath, "utf8");
@@ -30,6 +34,14 @@ const parseScript = (filepath) => {
     if (scriptData.title[i].type == "author") {
       author = scriptData.title[i].plainText.replace(/<(?:.|\n)*?>/gm, '')
     }
+
+    if (scriptData.title[i].type == 'property') {
+      let prop = scriptData.title[i].formattedText.split(': ')
+      if (prop[0].toLowerCase() == 'treatmentread') {
+        treatmentread = prop[1].trim()
+      }
+    }
+
   }
 
   // check if there are any sections
@@ -406,6 +418,23 @@ const renderScript = (options = {}) => {
     let titleHeight = doc.heightOfString(script.title, {width: titleWidth})
 
     doc.text(script.title, doc.page.width-margin[2]-titleWidth, doc.page.height-margin[3]-1.25-titleHeight, {lineBreak: false})
+
+    if (treatmentread) {
+      let left =  doc.page.width-margin[2]-titleWidth -80-20
+      let top = doc.page.height-margin[3]-1.25-titleHeight + 4
+
+      let qrImage = qr.imageSync(treatmentread, {ec_level: 'H', type: 'png', size: 15, margin: 0, parse_url: true})
+      doc.image(qrImage, left, top, {width: 60})
+      doc.font('bold')
+      doc.fontSize(8)
+      doc.text("Listen to the outline on your phone:", left-80-20, top, {width: 90, lineBreak: true, lineGap: 0, align: 'right'})
+      doc.font('thin')
+      doc.fontSize(6)
+      doc.text("Open the camera app, and point the camera here, and click the link...", left-80-10, top+20, {width: 80, lineBreak: true, lineGap: 0, align: 'right'})
+    }
+
+
+
     let dateText = 'DRAFT: ' + moment().format('MMMM D, YYYY').toUpperCase() + '  //  ' + script.author
 
     doc.fontSize(documentSize[0]/columnCount*.025)
@@ -419,14 +448,14 @@ const renderScript = (options = {}) => {
     doc.fontSize(5)
     let wuWidth = doc.widthOfString(' WONDER UNIT', {characterSpacing: 1})
     doc.fontSize(6)
-    let sbWidth = doc.widthOfString('   //   Outliner')
+    let sbWidth = doc.widthOfString('   //   Script Assistant')
     doc.fontSize(10)
 
     doc.text('', doc.page.width-margin[2]-logoWidth-wuWidth-sbWidth-1.25, doc.page.height-margin[3]-1.25, {lineBreak: false})
     doc.fontSize(5)
     doc.text(' WONDER UNIT', doc.page.width-margin[2]-wuWidth-sbWidth, doc.page.height-margin[3]+0.5, {lineBreak: false, characterSpacing: 1})
     doc.fontSize(6)
-    doc.text('   //   Outliner', doc.page.width-margin[2]-sbWidth, doc.page.height-margin[3], {lineBreak: false})
+    doc.text('   //   Script Assistant', doc.page.width-margin[2]-sbWidth, doc.page.height-margin[3], {lineBreak: false})
     stream.on('finish', () => {
       doneCallback({string: "done!", chatID: chatID, outputFileName: outputFileName})
       finishedCallback()

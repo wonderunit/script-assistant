@@ -443,10 +443,7 @@ const generate = async (options = {}) => {
     doc.font('thin')
     doc.fontSize(6)
     doc.text("Open the camera app, and point the camera here, and click the link...", documentSize[0]-180-10, 30+20, {width: 80, lineBreak: true, lineGap: 0, align: 'right'})
-
   }
-
-
 
   for (let i = 0; i < scriptData.title.length; i++) {
     if (scriptData.title[i].type == "title") {
