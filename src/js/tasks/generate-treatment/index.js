@@ -6,6 +6,9 @@ const moment = require('moment')
 const Jimp = require('jimp')
 const qr = require('qr-image')
 
+
+const imageCache = require('../image-cache.js')
+
 const reader = require('../reader.js')
 
 
@@ -134,8 +137,6 @@ const generate = async (options = {}) => {
     }
   }
 
-
-
   /*
     Title
     Logline
@@ -161,8 +162,7 @@ const generate = async (options = {}) => {
             let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
             if (!imageHash[imagesrc]) {
               progressCallback({string: 'Resizing script image: ' + Math.round(((i+1)/scriptData.script.length)*100) + '%', chatID: chatID})
-              let value = await Jimp.read(imagesrc)
-              let image = await value.resize(Math.round(widthM*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
+              let image = await imageCache.getImage(imagesrc, Math.round(widthM*4.1666))
               imageHash[imagesrc] = image
             }
           }

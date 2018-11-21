@@ -4,6 +4,9 @@ const pdfDocument = require('pdfkit')
 const moment = require('moment')
 const fountainParse = require('../fountain-parse')
 
+const imageCache = require('../image-cache.js')
+
+
 let includeSynopses
 let includeNotes
 let columnOverride
@@ -128,7 +131,7 @@ const parseScript = (filepath) => {
   return {chunks: chunks, title: title, author: author}
 }
 
-const renderChunk = (chunk, doc, width, x, y, render) => {
+const renderChunk = async (chunk, doc, width, x, y, render) => {
   let verticalCursor = 0
   let paddingBottom = 0
   let atomText
@@ -223,7 +226,10 @@ const renderChunk = (chunk, doc, width, x, y, render) => {
     if (chunk[i].type == "image") {
       if (render) {
         if (chunk[i].text !== 'blank') {
-          doc.image(chunk[i].text, x, y+ verticalCursor, {width: width})
+
+          let image = await imageCache.getImage(chunk[i].text, Math.round(width*4.1666))
+
+          doc.image(image, x, y+ verticalCursor, {width: width})
         }
         doc.rect(x,y+ verticalCursor,width,(width*(1/2.35)))
         doc.lineWidth(.1).stroke()
@@ -248,7 +254,7 @@ const renderChunk = (chunk, doc, width, x, y, render) => {
   return verticalCursor
 }
 
-const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) => {
+const layoutChunks = async (chunks, columnCount, doc, documentSize, render, margin) => {
   let actCount = 0
   let currentScene = 0
   let lastActStart
@@ -281,7 +287,7 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
       cursorX += chunkWidth + actSpacing
       lastActStart = cursorX
     }
-    height = renderChunk(chunks[i], doc, chunkWidth, 0, cursorY, false)
+    height = await renderChunk(chunks[i], doc, chunkWidth, 0, cursorY, false)
     if ((cursorY+height) > documentSize[1]-margin[1]-margin[3]) {
       cursorY = margin[1] + (documentSize[0]/columnCount)*0.118
       cursorX += chunkWidth+ columnSpacing
@@ -310,7 +316,7 @@ const layoutChunks = (chunks, columnCount, doc, documentSize, render, margin) =>
     }
     if (render) {
       progressCallback({string: "Rendering Node " + (i+1) + ' of ' + chunks.length, chatID: chatID})
-      renderChunk(chunks[i], doc, chunkWidth, cursorX, cursorY, true)
+      await renderChunk(chunks[i], doc, chunkWidth, cursorX, cursorY, true)
     }
     cursorY += height + verticalSpacing
 
@@ -351,7 +357,7 @@ const generate = async (options = {}) => {
 
 
 const renderScript = (options = {}) => {
-  return new Promise((resolve, reject) => {
+  return new Promise( async (resolve, reject) => {
     let script = parseScript(options.inputPath)
     let documentSize = [48*72,36*72]
     let margin = [40, 22, 40, 40]
@@ -377,7 +383,7 @@ const renderScript = (options = {}) => {
     let columnCount = 3
     let columnsFit = false
     while (!columnsFit) {
-      columnsFit = layoutChunks(script.chunks, columnCount, doc, documentSize, false, margin)
+      columnsFit = await layoutChunks(script.chunks, columnCount, doc, documentSize, false, margin)
       columnCount += 0.01
       progressCallback({string: "Trying to layout out... " + columnCount, chatID: chatID})
     }
@@ -385,13 +391,14 @@ const renderScript = (options = {}) => {
     columnCount -= 0.02
     console.log(columnCount)
 
+
     if (columnOverride) {
       columnCount = Number(columnOverride)
+    } else {
+      progressCallback({string: "Trying to fit in columns: " + columnCount})
     }
 
-
-
-    layoutChunks(script.chunks, columnCount, doc, documentSize, true, margin)
+    await layoutChunks(script.chunks, columnCount, doc, documentSize, true, margin)
 
     doc.fontSize(documentSize[0]/columnCount*.15)
     doc.font('black')

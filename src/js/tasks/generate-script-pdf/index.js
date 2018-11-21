@@ -9,6 +9,9 @@ const qr = require('qr-image')
 
 const fountainParse = require('../fountain-parse')
 
+const imageCache = require('../image-cache.js')
+
+
 let progressCallback
 let doneCallback
 let finishedCallback
@@ -177,8 +180,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
                 progressCallback({string: 'Resizing title image', chatID: chatID})
                 let filename = prop[1].trim()
                 let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
-                let value = await Jimp.read(imagesrc)
-                let image = await value.resize(Math.round((documentSize[0]-72)*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
+                let image = await imageCache.getImage(imagesrc, Math.round((documentSize[0]-72)*4.1666))
                 imageHash['titleImage'] = image
               }
             }
@@ -194,8 +196,7 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
               let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
               if (!imageHash[imagesrc]) {
                 progressCallback({string: 'Resizing script image: ' + Math.round(((i+1)/scriptData.script.length)*100) + '%', chatID: chatID})
-                let value = await Jimp.read(imagesrc)
-                let image = await value.resize(Math.round(widthM*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
+                let image = await imageCache.getImage(imagesrc, Math.round(widthM*4.1666))
                 imageHash[imagesrc] = image
               }
             }
@@ -212,14 +213,11 @@ const renderScript = async (scriptData, render, outputFilePath, options) => {
             if (options.inputPath) {
               let filename = prop[1].trim()
               let imagesrc = path.join(path.dirname(options.inputPath),filename.toLowerCase())
-
               if (!imageHash[imagesrc + 'large']) {
                 progressCallback({string: 'Resizing sheet image: ' + Math.round(((i+1)/scriptData.script.length)*100) + '%', chatID: chatID})
-                let value = await Jimp.read(imagesrc)
-                let image = await value.resize(Math.round((documentSize[0]-(72*2))*4.1666), Jimp.AUTO).quality(80).getBase64Async(Jimp.MIME_JPEG)
+                let image = await imageCache.getImage(imagesrc, Math.round((documentSize[0]-(72*2))*4.1666))
                 imageHash[imagesrc + 'large'] = image
               }
-
             }
           }
         }
