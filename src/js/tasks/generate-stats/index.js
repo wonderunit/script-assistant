@@ -61,6 +61,7 @@ const generate = async (options = {}) => {
 
   let currentCharacter = null
   let characterLines = {}
+  let characterScenes = {}
 
   for (var i = 0; i < scriptData.script.length; i++) {
     if (scriptData.script[i].plainText) {
@@ -80,7 +81,6 @@ const generate = async (options = {}) => {
           wordCount += getWordCount(scriptData.script[i].plainText)
           sceneCount++
           duration += 2000
-
           let location = scriptData.script[i].plainText.split(' - ')
           if (location.length > 1) {
             location.pop()
@@ -128,6 +128,51 @@ const generate = async (options = {}) => {
     }
   }
 
+  // find the main characters
+  let mainCharacters = []
+  for (let characterKey in  characterLines) {
+    if (characterLines[characterKey].length > 14) {
+      mainCharacters.push(characterKey)
+    }
+  }
+  // search for the main characters in the action
+  sceneCount = 0
+  characterScenes = {}
+
+  for (var i = 0; i < scriptData.script.length; i++) {
+    if (scriptData.script[i].plainText) {
+      switch (scriptData.script[i].type) {
+        case 'action':
+          for (let z = 0; z< mainCharacters.length; z++ ) {
+            if ((scriptData.script[i].plainText.toLowerCase().search(mainCharacters[z].toLowerCase() + ' ') !== -1) || (scriptData.script[i].plainText.toLowerCase().search(mainCharacters[z].toLowerCase() + '. ') !== -1) || (scriptData.script[i].plainText.toLowerCase().search(mainCharacters[z].toLowerCase() + ', ') !== -1)) {
+              if (characterScenes[mainCharacters[z]] == undefined) {
+                characterScenes[mainCharacters[z]] = {sceneCount: 1, 'firstScene': sceneCount, lastScene: sceneCount}
+              }
+              if (characterScenes[mainCharacters[z]].lastScene !== sceneCount) {
+                characterScenes[mainCharacters[z]].sceneCount++
+                characterScenes[mainCharacters[z]].lastScene = sceneCount
+              }
+            }
+          }
+          break
+        case 'scene_heading':
+          sceneCount++
+          break
+        case 'character':
+          let character = titleCase(scriptData.script[i].plainText).split('(')[0].split(' AND ')[0].trim()
+          currentCharacter = character
+          if (characterScenes[character] == undefined) {
+            characterScenes[character] = {sceneCount: 1, 'firstScene': sceneCount, lastScene: sceneCount}
+          }
+          if (characterScenes[character].lastScene !== sceneCount) {
+            characterScenes[character].sceneCount++
+            characterScenes[character].lastScene = sceneCount
+          }
+          break
+      }
+    }
+  }
+
   // save files for the character lines:
   let outputDirectory = app.getPath('documents')
   for (let characterKey in  characterLines) {
@@ -143,6 +188,18 @@ const generate = async (options = {}) => {
       })
     }
   }
+
+  // save files for the character scenes:
+  let linesText = 'Character,Total Dialogues,Total Scenes,First Scene' + "\n"
+  for (let characterKey in  characterScenes) {
+    let line = characterKey + ',' + characterLines[characterKey].length + ',' + characterScenes[characterKey].sceneCount + ',' + characterScenes[characterKey].firstScene + "\n"
+    linesText += line
+  }
+  fs.writeFile(path.join(outputDirectory, 'castreport.csv'), linesText, function(err) {
+    if(err) {
+      return
+    }
+  })
 
   return {
     title: title,
